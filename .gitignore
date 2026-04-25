@@ -1,9 +1,67 @@
+# ------------------------------
+# OS / editor artifacts
+# ------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ------------------------------
+# Environment / secrets
+# ------------------------------
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+*.secrets
+
+# ------------------------------
+# TLS certs and private keys (generated)
+# ------------------------------
+tls-pq-lab/certs/*.crt
+tls-pq-lab/certs/*.key
+tls-pq-lab/certs/*.pem
+tls-pq-lab/certs/*.p12
+tls-pq-lab/certs/*.pfx
+!tls-pq-lab/certs/curl-format.txt
+
+# ------------------------------
+# Generated benchmark outputs
+# ------------------------------
 tls-pq-lab/results/*
 !tls-pq-lab/results/.gitkeep
 !tls-pq-lab/results/RESULTS_TEMPLATE.md
 
-tls-pq-lab/certs/server.crt
-tls-pq-lab/certs/server.key
-
+# ------------------------------
+# Python cache / virtualenv
+# ------------------------------
 **/__pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# ------------------------------
+# Runtime logs / temp files
+# ------------------------------
+*.log
+*.pid
+*.tmp
+*.out
+
+# ------------------------------
+# Local docker overrides
+# ------------------------------
+docker-compose.override.yml
+tls-pq-lab/docker-compose.override.yml
