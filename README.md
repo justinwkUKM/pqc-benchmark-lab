@@ -34,15 +34,15 @@ This boots the lab and runs the full multi-profile matrix with defaults.
 flowchart LR
   U[User / CI] --> B[bootstrap.sh]
   B --> D[(Docker Compose)]
-  D --> C[tls-client container\n(OQS OpenSSL + curl)]
-  D --> S[tls-server container\n(OQS NGINX)]
+  D --> C["tls-client container<br/>(OQS OpenSSL + curl)"]
+  D --> S["tls-server container<br/>(OQS NGINX)"]
 
-  R[run_profiles.sh] --> P[Apply infra profile\n(tc + docker update)]
-  P --> M[Run mode matrix\nclassical/kex_pqc/cert_pqc/hybrid/pqc]
-  M --> L[Latency\nrun_latency.sh]
-  M --> H[Capture\ncapture_handshake.sh]
-  M --> Q[Concurrency\nrun_concurrency.sh]
-  M --> SP[Crypto speed\nrun_speed.sh]
+  R[run_profiles.sh] --> P["Apply infra profile<br/>(tc + docker update)"]
+  P --> M["Run mode matrix<br/>classical/kex_pqc/cert_pqc/hybrid/pqc"]
+  M --> L["Latency<br/>run_latency.sh"]
+  M --> H["Capture<br/>capture_handshake.sh"]
+  M --> Q["Concurrency<br/>run_concurrency.sh"]
+  M --> SP["Crypto speed<br/>run_speed.sh"]
 
   L --> O[(results/profiles)]
   H --> O

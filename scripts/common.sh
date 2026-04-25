@@ -152,7 +152,7 @@ apply_network_profile() {
 }
 
 reset_server_limits() {
-  docker update --cpus 0 --memory 0 tls-server >/dev/null 2>&1 || true
+  docker update --cpus 0 --memory 0 --memory-swap 0 tls-server >/dev/null 2>&1 || true
 }
 
 apply_server_limits() {
@@ -162,7 +162,7 @@ apply_server_limits() {
     reset_server_limits
     return
   fi
-  docker update --cpus "${cpus}" --memory "${memory}" tls-server >/dev/null
+  docker update --cpus "${cpus}" --memory "${memory}" --memory-swap "${memory}" tls-server >/dev/null
 }
 
 apply_infra_profile() {

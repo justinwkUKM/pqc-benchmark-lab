@@ -87,11 +87,11 @@ def read_concurrency(path: Path) -> dict[str, float]:
     fail = 0
     for r in rows:
         try:
-            ok += int(r.get("ok", "0"))
+            ok += int((r.get("ok") or "0").strip())
         except ValueError:
             pass
         try:
-            fail += int(r.get("fail", "0"))
+            fail += int((r.get("fail") or "0").strip())
         except ValueError:
             pass
 
