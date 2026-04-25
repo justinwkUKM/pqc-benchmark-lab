@@ -12,7 +12,7 @@ canonical_algorithm() {
   local param="${3:-}"
   local normalized
 
-  normalized="$(printf '%s' "${alg}" | tr '[:upper:]' '[:lower:]' | tr -d ' -_')"
+  normalized="$(printf '%s' "${alg}" | tr '[:upper:]' '[:lower:]' | tr -d ' _-')"
 
   if [[ "${family}" == "kem" ]]; then
     case "${normalized}" in
@@ -52,13 +52,15 @@ canonical_algorithm() {
   esac
 }
 
+SPLIT_CSV_RESULT=()
+
 split_csv() {
   local input="$1"
-  local -n out_ref=$2
-  local item
-  IFS=',' read -r -a out_ref <<<"${input}"
-  for item in "${!out_ref[@]}"; do
-    out_ref["${item}"]="$(printf '%s' "${out_ref["${item}"]}" | xargs)"
+  local part
+  SPLIT_CSV_RESULT=()
+  IFS=',' read -r -a parts <<<"${input}"
+  for part in "${parts[@]}"; do
+    SPLIT_CSV_RESULT+=("$(printf '%s' "${part}" | xargs)")
   done
 }
 

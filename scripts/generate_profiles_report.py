@@ -192,6 +192,7 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(args.results_dir)
+    root.mkdir(parents=True, exist_ok=True)
     slo = parse_slo(Path(args.slo_file))
     summary_csv = root / "summary.csv"
     heatmap_csv = root / "heatmap-p95.csv"

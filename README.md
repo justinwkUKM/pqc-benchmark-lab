@@ -119,6 +119,30 @@ Evaluated automatically in `results/profiles/ACCEPTANCE.md`:
 ./scripts/run_profiles.sh 3 50 5 off
 ```
 
+## Additional PQC Utilities
+
+### Algorithm playground
+
+```bash
+./scripts/playground.sh list --family kem
+./scripts/playground.sh list --family sig
+./scripts/playground.sh run --backend openssl --family kem --alg mlkem --param 768
+./scripts/playground.sh compare --backend-a openssl --backend-b liboqs --family sig --alg mldsa --param 65
+./scripts/playground.sh vector --backend openssl --vector-file vectors/kem/core-support.json
+```
+
+See `docs/pqc_playground.md` for complete usage.
+
+### Interoperability harness
+
+```bash
+./scripts/interop.sh matrix --family kem --alg mlkem --param 768 --backends openssl,liboqs,python
+./scripts/interop.sh negative --family sig --alg mldsa --param 65 --backends openssl,liboqs,python
+./scripts/interop.sh report --run-dir results/interop/<timestamp>
+```
+
+See `docs/pqc_interop.md` for complete usage.
+
 ## Notes
 
 - If PQC names are unavailable in your image build, verify:

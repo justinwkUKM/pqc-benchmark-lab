@@ -41,7 +41,27 @@ run_one() {
     return 1
   fi
 
-  adapter_run "${backend}" "${family}" "${algorithm}" "${case_file}" || true
+  if ! adapter_run "${backend}" "${family}" "${algorithm}" "${case_file}"; then
+    if [[ ! -f "${case_file}" ]]; then
+      python3 - "${case_file}" "${backend}" "${family}" "${algorithm}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+payload = {
+    "tool": "playground",
+    "backend": sys.argv[2],
+    "family": sys.argv[3],
+    "algorithm": sys.argv[4],
+    "status": "error",
+    "error_code": "adapter_failed",
+    "metrics_ops_per_sec": {},
+}
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+    fi
+  fi
   printf '%s\n' "${case_file}"
 }
 

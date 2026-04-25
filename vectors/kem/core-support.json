@@ -1,0 +1,11 @@
+{
+  "name": "kem-core-support",
+  "cases": [
+    {
+      "id": "mlkem768-supported",
+      "family": "kem",
+      "algorithm": "mlkem768",
+      "expected_supported": true
+    }
+  ]
+}

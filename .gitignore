@@ -24,19 +24,19 @@ Thumbs.db
 # ------------------------------
 # TLS certs and private keys (generated)
 # ------------------------------
-tls-pq-lab/certs/*.crt
-tls-pq-lab/certs/*.key
-tls-pq-lab/certs/*.pem
-tls-pq-lab/certs/*.p12
-tls-pq-lab/certs/*.pfx
-!tls-pq-lab/certs/curl-format.txt
+certs/*.crt
+certs/*.key
+certs/*.pem
+certs/*.p12
+certs/*.pfx
+!certs/curl-format.txt
 
 # ------------------------------
 # Generated benchmark outputs
 # ------------------------------
-tls-pq-lab/results/*
-!tls-pq-lab/results/.gitkeep
-!tls-pq-lab/results/RESULTS_TEMPLATE.md
+results/*
+!results/.gitkeep
+!results/RESULTS_TEMPLATE.md
 
 # ------------------------------
 # Python cache / virtualenv
@@ -64,4 +64,3 @@ venv/
 # Local docker overrides
 # ------------------------------
 docker-compose.override.yml
-tls-pq-lab/docker-compose.override.yml

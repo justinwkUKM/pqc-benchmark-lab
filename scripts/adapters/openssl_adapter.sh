@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/../common.sh"
+ADAPTER_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${ADAPTER_DIR}/../common.sh"
 
 usage() {
   cat <<'EOF'
@@ -31,7 +31,7 @@ emit_run_json() {
   local reason="$6"
   local raw_file="$7"
   local parser_script
-  parser_script="${SCRIPT_DIR}/../parse_speed.py"
+  parser_script="${ADAPTER_DIR}/../parse_speed.py"
   python3 "${parser_script}" \
     --backend "${backend}" \
     --family "${family}" \

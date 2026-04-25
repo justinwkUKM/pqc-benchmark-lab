@@ -1,0 +1,23 @@
+{
+  "name": "sig-core-support",
+  "cases": [
+    {
+      "id": "mldsa65-supported",
+      "family": "sig",
+      "algorithm": "mldsa65",
+      "expected_supported": true
+    },
+    {
+      "id": "falcon512-supported",
+      "family": "sig",
+      "algorithm": "falcon512",
+      "expected_supported": true
+    },
+    {
+      "id": "sphincs128f-supported",
+      "family": "sig",
+      "algorithm": "sphincssha2128fsimple",
+      "expected_supported": true
+    }
+  ]
+}
