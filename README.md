@@ -28,6 +28,55 @@ It is designed for repeatable comparative runs, profile-based infrastructure emu
 
 This boots the lab and runs the full multi-profile matrix with defaults.
 
+## Sequential Run Order (Recommended)
+
+Use this sequence when you want full control and clean, reproducible outputs.
+
+1) Start clean for profile aggregation:
+
+```bash
+rm -rf results/profiles
+```
+
+2) Bootstrap containers and baseline certs:
+
+```bash
+./scripts/bootstrap.sh
+```
+
+3) Capture environment metadata (host + Docker + SLO snapshot):
+
+```bash
+./scripts/capture_env.sh
+```
+
+4) Run the multi-profile benchmark matrix (randomized mode order per profile):
+
+```bash
+./scripts/run_profiles.sh 3 50 5 off
+```
+
+5) Review generated reports:
+
+```bash
+open results/profiles/SUMMARY.md
+open results/profiles/ACCEPTANCE.md
+```
+
+Optional post-runs:
+
+- TLS resumption A/B comparison:
+
+```bash
+./scripts/run_resumption_ab.sh 1 50 5
+```
+
+- One-command end-to-end run:
+
+```bash
+./scripts/run_all.sh
+```
+
 ## Architecture Diagram
 
 ```mermaid
@@ -115,11 +164,24 @@ Key generated files:
 - `results/profiles/compatibility-status.csv`
 - `results/profiles/ACCEPTANCE.md`
 
+What each file means:
+
+- `results/profiles/ACCEPTANCE.md`: final pass/fail gate against SLO thresholds in `config/slo.env`.
+- `results/profiles/SUMMARY.md`: human-readable report for decisions (tables + deltas + compatibility).
+- `results/profiles/summary.csv`: machine-readable aggregate metrics (best source for custom charts).
+- `results/profiles/heatmap-p95.csv`: profile x mode matrix of handshake `p95` values.
+- `results/profiles/compatibility-status.csv`: raw pass/fail rows per `session/profile/mode/step` with reason text.
+
 Per profile/session artifacts:
 
 - `results/profiles/<profile>/sessions/<session-id>/latency-*.csv`
 - `results/profiles/<profile>/sessions/<session-id>/concurrency-*.csv`
 - `results/profiles/<profile>/sessions/<session-id>/tls-capture-*.pcap`
+
+Session-scoped supporting artifacts:
+
+- `results/profiles/_session-speed/<session-id>/speed-*.txt`: raw `openssl speed` throughput output.
+- `results/environment/host-metadata-*.json`: host and Docker metadata snapshot for reproducibility.
 
 ## Interpretation Model
 
@@ -129,6 +191,35 @@ Use `classical` as baseline for deltas:
 - Certificate overhead: `cert_pqc - classical`
 - Combined PQC overhead: `pqc - classical`
 - Migration profile overhead: `hybrid - classical`
+
+Recommended interpretation flow:
+
+1. Read `results/profiles/ACCEPTANCE.md` first.
+   - If this fails, treat performance numbers as diagnostic only, not rollout-ready.
+2. Read `results/profiles/SUMMARY.md` next.
+   - `Executive Summary` = absolute behavior per profile/mode.
+   - `Delta vs Classical` = relative overhead/benefit.
+3. Use `results/profiles/summary.csv` for deeper analysis and plotting.
+
+Example decision memo (short format):
+
+- Scope: `3` sessions, `5` infra profiles, `5` crypto modes, resumption `off`.
+- Gate result: `ACCEPTANCE.md` is `PASS`/`FAIL` (state exact reason if fail).
+- Migration call: choose `hybrid` if p95 overhead stays within SLO and compatibility is clean.
+- Pilot call: choose `pqc` when compatibility is acceptable and overhead is tolerable for target profiles.
+- Rollout note: prioritize profiles where business latency is most sensitive (`dc_lan` vs `cross_region` etc.).
+
+How to reason about outcomes:
+
+- If deltas are small in `cross_region`/`mobile_edge` but visible in `dc_lan`, network latency dominates and crypto overhead is less user-visible.
+- If `constrained_cpu` shows rising `p95` or failures, crypto compute cost is the likely bottleneck.
+- If `hybrid` stays near `classical` with clean compatibility, it is typically the safest near-term migration profile.
+- If `pqc` has larger overhead or compatibility issues, use it as pilot/target-state rather than immediate default.
+
+Packet-level interpretation:
+
+- Open `results/profiles/<profile>/sessions/<session-id>/tls-capture-*.pcap` in Wireshark for manual handshake inspection.
+- If `tshark` is installed, report generation includes handshake message-level sizing automatically.
 
 ## Acceptance Checks
 
