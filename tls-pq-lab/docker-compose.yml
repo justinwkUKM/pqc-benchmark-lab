@@ -1,0 +1,28 @@
+name: tls-pq-lab
+
+services:
+  tls-server:
+    image: ${TLS_SERVER_IMAGE:-openquantumsafe/nginx@sha256:6bc5272abe1f84e1a174316c9589d3d1f23bef5ef59095d386179b422716b5e1}
+    container_name: tls-server
+    ports:
+      - "4433:4433"
+    volumes:
+      - ./nginx.conf:/opt/nginx/nginx-conf/nginx.conf:ro
+      - ./certs:/opt/nginx/certs:rw
+    networks:
+      - pq-net
+
+  tls-client:
+    image: ${TLS_CLIENT_IMAGE:-openquantumsafe/curl@sha256:71235027ec52c00dd1edaf2190ffa05b78d99aa89d4ac51a241247ba922f105e}
+    container_name: tls-client
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./certs:/opt/nginx/certs:rw
+    networks:
+      - pq-net
+    command: /bin/sh
+
+networks:
+  pq-net:
+    name: tls-pq-lab_pq-net

@@ -1,0 +1,6 @@
+
+DNS Lookup:   %{time_namelookup}s
+TCP Connect:  %{time_connect}s
+TLS Setup:    %{time_appconnect}s
+First Byte:   %{time_starttransfer}s
+Total Time:   %{time_total}s
