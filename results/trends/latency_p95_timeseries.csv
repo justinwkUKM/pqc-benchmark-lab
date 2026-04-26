@@ -1,0 +1,7 @@
+run_id,finished_utc,workload,profile,mode,latency_p95,latency_success_rate,delta_latency_p95_vs_classical,cpu_peak,pcap_bytes
+smoke-run-id,2026-04-26T12:03:07Z,quick_smoke,,,,,,,
+smoke-run-id,2026-04-26T12:03:07Z,quick_smoke,,,,,,,
+smoke-run-id,2026-04-26T12:03:07Z,quick_smoke,,,,,,,
+suite-quick-20260426-185620,N/A,N/A,dc_lan,classical,0.023061,100.0,+0.00%,2.0,24.0
+suite-quick-20260426-185620,N/A,N/A,dc_lan,hybrid,0.023941,100.0,+3.82%,2.0,24.0
+suite-quick-20260426-185620,N/A,N/A,dc_lan,pqc,0.037292,100.0,+61.71%,2.0,24.0

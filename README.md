@@ -164,6 +164,36 @@ RUN_ID="release-candidate-01" ./scripts/run_profiles.sh 3 50 5 off
 python3 scripts/validate_config.py
 ```
 
+### Run lab doctor checks
+
+```bash
+./scripts/lab_doctor.sh
+```
+
+### Generate decision scoring brief
+
+```bash
+python3 scripts/score_profiles.py \
+  --summary-csv results/runs/<run-id>/reports/summary.csv \
+  --compat-csv results/runs/<run-id>/reports/compatibility-status.csv \
+  --preset balanced \
+  --output-md reports/DECISION_BRIEF.md \
+  --output-csv reports/decision-scores.csv
+```
+
+Available presets in `config/scoring_profiles.yaml`:
+
+- `low-latency-edge`
+- `constrained-compute`
+- `compatibility-first`
+- `balanced`
+
+### Export trend CSVs for dashboards
+
+```bash
+python3 scripts/export_trends.py --runs-index results/runs/index.csv --output-dir results/trends
+```
+
 ### Catalog algorithm capabilities and generate executable matrices
 
 ```bash
