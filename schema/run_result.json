@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/pqc-lab/run_result.schema.json",
+  "title": "PQC Lab Run Result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "captured_at_utc",
+    "environment",
+    "algorithm_tuple",
+    "workload",
+    "metrics"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "captured_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "environment": {
+      "type": "object",
+      "required": ["profile", "backend", "container_images"],
+      "properties": {
+        "profile": {"type": "string"},
+        "backend": {"type": "string"},
+        "container_images": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "host": {"type": "string"},
+        "git_commit": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "algorithm_tuple": {
+      "type": "object",
+      "required": ["mode", "cert_algorithm", "kex_group", "tls_version"],
+      "properties": {
+        "mode": {"type": "string"},
+        "cert_algorithm": {"type": "string"},
+        "kex_group": {"type": "string"},
+        "tls_version": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "workload": {
+      "type": "object",
+      "required": ["name", "latency_runs", "warmup", "resumption_mode", "parallel", "rounds"],
+      "properties": {
+        "name": {"type": "string"},
+        "latency_runs": {"type": "integer", "minimum": 1},
+        "warmup": {"type": "integer", "minimum": 0},
+        "resumption_mode": {"type": "string", "enum": ["on", "off"]},
+        "parallel": {"type": "integer", "minimum": 1},
+        "rounds": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": true
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["latency", "concurrency"],
+      "properties": {
+        "latency": {
+          "type": "object",
+          "properties": {
+            "success_rate": {"type": "number", "minimum": 0, "maximum": 100},
+            "p50": {"type": "number", "minimum": 0},
+            "p95": {"type": "number", "minimum": 0},
+            "p99": {"type": "number", "minimum": 0}
+          },
+          "additionalProperties": true
+        },
+        "concurrency": {
+          "type": "object",
+          "properties": {
+            "success_rate": {"type": "number", "minimum": 0, "maximum": 100},
+            "cpu_peak": {"type": "number", "minimum": 0},
+            "mem_peak": {"type": "number", "minimum": 0}
+          },
+          "additionalProperties": true
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

@@ -6,6 +6,8 @@ LAB_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${LAB_ROOT}/docker-compose.yml"
 RESULTS_DIR="${RESULTS_DIR:-${LAB_ROOT}/results}"
 SLO_FILE="${SLO_FILE:-${LAB_ROOT}/config/slo.env}"
+INFRA_PROFILE_FILE="${LAB_ROOT}/config/infra_profiles.csv"
+MODES_FILE="${LAB_ROOT}/config/modes.csv"
 
 mkdir -p "${RESULTS_DIR}" "${LAB_ROOT}/certs"
 
@@ -48,40 +50,52 @@ reload_server() {
 }
 
 mode_group() {
-  case "$1" in
-    classical) echo "X25519" ;;
-    kex_pqc) echo "mlkem768" ;;
-    cert_pqc) echo "X25519" ;;
-    pqc) echo "mlkem768" ;;
-    hybrid) echo "X25519MLKEM768" ;;
-    hybrid_pqc_cert) echo "X25519MLKEM768" ;;
-    *)
-      echo "unknown mode: $1" >&2
-      return 1
-      ;;
-  esac
+  local mode="$1"
+  python3 - "${MODES_FILE}" "${mode}" <<'PY'
+import csv
+import sys
+
+path, mode = sys.argv[1:]
+with open(path, newline="", encoding="utf-8") as handle:
+    for row in csv.DictReader(handle):
+        if row.get("mode") == mode:
+            print(row.get("kex_group", ""))
+            raise SystemExit(0)
+raise SystemExit(1)
+PY
 }
 
 generate_cert() {
   local mode="$1"
-  case "${mode}" in
-    classical|kex_pqc|hybrid)
-      docker exec tls-client openssl req -x509 -newkey rsa:2048 -nodes \
-        -keyout /opt/nginx/certs/server.key \
-        -out /opt/nginx/certs/server.crt \
-        -days 365 -subj "/CN=tls-server" >/dev/null 2>&1
-      ;;
-    cert_pqc|pqc|hybrid_pqc_cert)
-      docker exec tls-client openssl req -x509 -newkey mldsa65 -nodes \
-        -keyout /opt/nginx/certs/server.key \
-        -out /opt/nginx/certs/server.crt \
-        -days 365 -subj "/CN=tls-server" >/dev/null 2>&1
-      ;;
+  local cert_alg
+  cert_alg="$(python3 - "${MODES_FILE}" "${mode}" <<'PY'
+import csv
+import sys
+
+path, mode = sys.argv[1:]
+with open(path, newline="", encoding="utf-8") as handle:
+    for row in csv.DictReader(handle):
+        if row.get("mode") == mode:
+            print(row.get("cert_algorithm", ""))
+            raise SystemExit(0)
+raise SystemExit(1)
+PY
+)"
+
+  local newkey
+  case "${cert_alg}" in
+    rsa2048) newkey="rsa:2048" ;;
+    mldsa65) newkey="mldsa65" ;;
     *)
-      echo "unknown mode: ${mode}" >&2
+      echo "unsupported cert algorithm '${cert_alg}' for mode '${mode}'" >&2
       return 1
       ;;
   esac
+
+  docker exec tls-client openssl req -x509 -newkey "${newkey}" -nodes \
+    -keyout /opt/nginx/certs/server.key \
+    -out /opt/nginx/certs/server.crt \
+    -days 365 -subj "/CN=tls-server" >/dev/null 2>&1
 }
 
 probe_connection() {
@@ -167,30 +181,8 @@ apply_server_limits() {
 
 apply_infra_profile() {
   local profile="$1"
-  case "${profile}" in
-    dc_lan)
-      apply_server_limits none none
-      apply_network_profile 0 0 0 1gbit
-      ;;
-    cross_region)
-      apply_server_limits none none
-      apply_network_profile 60 10 0.1 100mbit
-      ;;
-    mobile_edge)
-      apply_server_limits none none
-      apply_network_profile 120 30 1 10mbit
-      ;;
-    constrained_cpu)
-      apply_server_limits 0.5 512m
-      apply_network_profile 0 0 0 1gbit
-      ;;
-    burst_gateway)
-      apply_server_limits none none
-      apply_network_profile 0 0 0 1gbit
-      ;;
-    *)
-      echo "Unknown infra profile: ${profile}" >&2
-      return 1
-      ;;
-  esac
+  local delay_ms jitter_ms loss_pct bandwidth cpus memory
+  read -r delay_ms jitter_ms loss_pct bandwidth cpus memory <<<"$(python3 "${SCRIPT_DIR}/config_query.py" profile-limits --profile "${profile}")"
+  apply_server_limits "${cpus}" "${memory}"
+  apply_network_profile "${delay_ms}" "${jitter_ms}" "${loss_pct}" "${bandwidth}"
 }

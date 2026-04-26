@@ -1,0 +1,86 @@
+{
+  "version": "1.0.0",
+  "algorithms": [
+    {
+      "family": "kem",
+      "canonical_name": "mlkem512",
+      "aliases": ["ml-kem-512", "kyber512"],
+      "security_level": 1,
+      "key_size_class": "small",
+      "maturity": "emerging",
+      "known_caveats": ["provider_support_varies"]
+    },
+    {
+      "family": "kem",
+      "canonical_name": "mlkem768",
+      "aliases": ["ml-kem-768", "kyber768"],
+      "security_level": 3,
+      "key_size_class": "medium",
+      "maturity": "recommended",
+      "known_caveats": ["hybrid_group_name_differs_by_stack"]
+    },
+    {
+      "family": "kem",
+      "canonical_name": "mlkem1024",
+      "aliases": ["ml-kem-1024", "kyber1024"],
+      "security_level": 5,
+      "key_size_class": "large",
+      "maturity": "recommended",
+      "known_caveats": ["higher_handshake_overhead"]
+    },
+    {
+      "family": "sig",
+      "canonical_name": "mldsa44",
+      "aliases": ["ml-dsa-44", "dilithium2"],
+      "security_level": 2,
+      "key_size_class": "small",
+      "maturity": "emerging",
+      "known_caveats": ["provider_support_varies"]
+    },
+    {
+      "family": "sig",
+      "canonical_name": "mldsa65",
+      "aliases": ["ml-dsa-65", "dilithium3"],
+      "security_level": 3,
+      "key_size_class": "medium",
+      "maturity": "recommended",
+      "known_caveats": ["certificate_size_increase"]
+    },
+    {
+      "family": "sig",
+      "canonical_name": "mldsa87",
+      "aliases": ["ml-dsa-87", "dilithium5"],
+      "security_level": 5,
+      "key_size_class": "large",
+      "maturity": "recommended",
+      "known_caveats": ["certificate_size_increase"]
+    },
+    {
+      "family": "sig",
+      "canonical_name": "falcon512",
+      "aliases": ["falcon-512"],
+      "security_level": 1,
+      "key_size_class": "small",
+      "maturity": "experimental",
+      "known_caveats": ["limited_provider_support"]
+    },
+    {
+      "family": "sig",
+      "canonical_name": "falcon1024",
+      "aliases": ["falcon-1024"],
+      "security_level": 5,
+      "key_size_class": "medium",
+      "maturity": "experimental",
+      "known_caveats": ["limited_provider_support"]
+    },
+    {
+      "family": "sig",
+      "canonical_name": "sphincssha2128fsimple",
+      "aliases": ["sphincs", "sphincs+-sha2-128f-simple"],
+      "security_level": 1,
+      "key_size_class": "very_large",
+      "maturity": "experimental",
+      "known_caveats": ["very_large_signature_size"]
+    }
+  ]
+}
