@@ -19,6 +19,18 @@ This lab is important because it lets you:
 - test behavior under multiple realistic network/host profiles,
 - apply acceptance gates before recommending rollout.
 
+## What is OQS and why this lab uses it
+
+**OQS (Open Quantum Safe)** is an open-source project that provides quantum-resistant cryptographic algorithms and integrations (including OpenSSL-enabled stacks) so teams can test and adopt post-quantum cryptography before broad platform defaults are available.
+
+This repository uses OQS-based Docker images for NGINX and curl/OpenSSL because they expose PQC and hybrid TLS algorithms (for example ML-KEM, ML-DSA, and hybrid groups) in a practical client/server setup.
+
+Why that matters here:
+
+- Standard TLS toolchains may not expose the PQC modes needed for comparative benchmarking.
+- OQS images let us run classical, hybrid, and PQC scenarios in the same framework.
+- It enables migration-focused experiments with realistic compatibility/performance tradeoff analysis.
+
 ## What this repository can do
 
 ### 1) Infrastructure profile emulation
