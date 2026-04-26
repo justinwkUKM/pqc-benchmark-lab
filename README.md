@@ -10,18 +10,6 @@ This project helps teams move from one-off tests to repeatable evidence-based ro
 
 ---
 
-## Featured Analysis: 2026 PQC Handshake Benchmarks
-
-A detailed analysis of TLS handshake performance comparing Classical vs. Hybrid vs. Full PQC modes.
-
-![PQC Benchmark Heatmap](./docs/images/pqc_heatmap.png)
-
-> [!TIP]
-> View the full technical breakdown, including raw cryptographic speed benchmarks and transition recommendations, in the **[April 2026 Analysis Report](./docs/ANALYSIS_REPORT_2026.md)**.
-
----
-
-
 ## Table of Contents
 
 - [Featured Analysis (April 2026)](#featured-analysis-2026-pqc-handshake-benchmarks)
@@ -43,6 +31,17 @@ A detailed analysis of TLS handshake performance comparing Classical vs. Hybrid 
 - [Extra tooling](#extra-tooling-pqc-playground-and-interop)
 - [License](#license)
 - [Security and risk notice](#security-and-risk-notice)
+
+---
+
+## Featured Analysis: 2026 PQC Handshake Benchmarks
+
+A detailed example analysis of TLS handshake performance comparing Classical vs. Hybrid vs. Full PQC modes.
+
+![PQC Benchmark Heatmap](./docs/images/pqc_heatmap.png)
+
+> [!TIP]
+> View the full technical breakdown, including raw cryptographic speed benchmarks and transition recommendations, in the **[April 2026 Analysis Report](./docs/ANALYSIS_REPORT_2026.md)**.
 
 ---
 
