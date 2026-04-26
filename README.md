@@ -1,109 +1,225 @@
 # TLS + PQC Benchmark Lab
 
-This repository is a reproducible benchmarking lab for evaluating TLS migration options across:
+A reproducible benchmarking lab for evaluating TLS migration paths across:
 
 - classical cryptography,
 - hybrid classical+PQC,
 - pure post-quantum cryptography (PQC).
 
-It helps engineering teams answer practical rollout questions with repeatable data instead of one-off spot checks.
+This project helps teams move from one-off tests to repeatable evidence-based rollout decisions.
 
-## Why this repository matters
+---
 
-Organizations need to prepare for post-quantum cryptography, but migration decisions are constrained by latency, compatibility, and infrastructure cost.
+## Table of Contents
 
-This lab is important because it lets you:
+- [Why this lab exists](#why-this-lab-exists)
+- [What is OQS and why it is used](#what-is-oqs-and-why-it-is-used)
+- [Key capabilities](#key-capabilities)
+- [Repository structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Beginner Guide](#beginner-guide-first-30-minutes)
+- [Intermediate Guide](#intermediate-guide-repeatable-engineering-benchmarks)
+- [Advanced Guide](#advanced-guide-decisioning-regression-gates-and-ci)
+- [How to interpret outputs](#how-to-interpret-outputs)
+- [Configuration reference](#configuration-reference)
+- [CI workflows](#ci-workflows)
+- [Troubleshooting](#troubleshooting)
+- [Reproducibility checklist](#reproducibility-checklist)
+- [Extra tooling](#extra-tooling-pqc-playground-and-interop)
+- [License](#license)
+- [Security and risk notice](#security-and-risk-notice)
 
-- quantify handshake overhead by mode,
-- separate KEX overhead from certificate-signature overhead,
-- test behavior under multiple realistic network/host profiles,
-- apply acceptance gates before recommending rollout.
+---
 
-## What is OQS and why this lab uses it
+## Why this lab exists
 
-**OQS (Open Quantum Safe)** is an open-source project that provides quantum-resistant cryptographic algorithms and integrations (including OpenSSL-enabled stacks) so teams can test and adopt post-quantum cryptography before broad platform defaults are available.
+Organizations preparing for post-quantum cryptography need to answer practical questions:
 
-This repository uses OQS-based Docker images for NGINX and curl/OpenSSL because they expose PQC and hybrid TLS algorithms (for example ML-KEM, ML-DSA, and hybrid groups) in a practical client/server setup.
+- What is handshake overhead for each migration mode?
+- Is overhead network-dominated or crypto-compute-dominated?
+- What fails under constrained profiles?
+- Which mode is best for current rollout, not only future target state?
 
-Why that matters here:
+This lab provides repeatable data with profile emulation, multi-session runs, acceptance gates, scoring, trend exports, and CI automation.
 
-- Standard TLS toolchains may not expose the PQC modes needed for comparative benchmarking.
-- OQS images let us run classical, hybrid, and PQC scenarios in the same framework.
-- It enables migration-focused experiments with realistic compatibility/performance tradeoff analysis.
+---
 
-## What this repository can do
+## What is OQS and why it is used
+
+**OQS (Open Quantum Safe)** provides PQC algorithms and integrations (including OpenSSL-enabled stacks) for practical migration testing before broad platform defaults are available.
+
+This repository uses OQS-enabled Docker images for client/server paths so the same harness can benchmark:
+
+- classical,
+- hybrid,
+- PQC
+
+in a comparable framework.
+
+---
+
+## Key capabilities
 
 ### 1) Infrastructure profile emulation
 
-Runs the same crypto matrix across these profiles:
+Profiles in `config/infra_profiles.csv` are applied via network shaping (`tc`) and container limits.
 
-- `dc_lan`: near-zero latency datacenter path
-- `cross_region`: 60ms/10ms jitter/0.1% loss/100mbit
-- `mobile_edge`: 120ms/30ms jitter/1% loss/10mbit
-- `constrained_cpu`: LAN network with server CPU+memory caps
-- `burst_gateway`: LAN network with high burst concurrency
+Current profiles:
 
-Profiles are defined in `config/infra_profiles.csv` and applied via `tc` + `docker update`.
-Workloads are defined in `config/workloads.csv` for repeatable latency/concurrency/resumption presets.
+- `dc_lan`
+- `cross_region`
+- `mobile_edge`
+- `constrained_cpu`
+- `burst_gateway`
 
-### 2) TLS crypto scenario matrix
+### 2) Config-driven TLS mode matrix
 
-Supported benchmark modes:
+Modes in `config/modes.csv` are auto-discovered (enabled rows only):
 
-- `classical`: RSA-2048 + X25519
-- `kex_pqc`: RSA-2048 + ML-KEM-768
-- `cert_pqc`: ML-DSA-65 + X25519
-- `hybrid`: RSA-2048 + X25519MLKEM768
-- `pqc`: ML-DSA-65 + ML-KEM-768
+- `classical`
+- `kex_pqc`
+- `cert_pqc`
+- `hybrid`
+- `pqc`
+- `hybrid_pqc_cert`
 
-Modes are defined in `config/modes.csv` (enabled rows are picked up automatically by matrix/profile runners).
+### 3) Suite + workload abstraction
 
-### 3) Measurement workflows
+- Workloads in `config/workloads.csv`
+- Suites in `config/suites.csv`
+- Runner: `scripts/run_suite.sh`
 
-- Latency sampling (`p50`, `p95`, `p99`)
-- Concurrency pressure (`ok/fail` by round, CPU/memory snapshots)
-- TLS packet capture (`.pcap` artifacts)
-- Raw crypto throughput (`openssl speed`)
+This decouples run orchestration from hardcoded shell args.
 
 ### 4) Run isolation and traceability
 
-Each `run_profiles.sh` execution generates a unique run ID and stores all artifacts in one folder:
+Every run is isolated under a unique run ID:
 
 - `results/runs/<run-id>/...`
 
-No cross-run mixing occurs in report generation.
+And indexed globally:
 
-### 5) Reporting and gates
+- `results/runs/index.csv`
+- `results/latest-run.txt`
 
-Per run, the lab generates:
+### 5) Reporting and analytics
 
-- `reports/SUMMARY.md`
-- `reports/summary.csv`
-- `reports/heatmap-p95.csv`
-- `reports/compatibility-status.csv`
-- `reports/ACCEPTANCE.md`
+Per-run outputs include:
 
-Acceptance checks are driven by thresholds in `config/slo.env`.
+- `SUMMARY.md`
+- `summary.csv`
+- `heatmap-p95.csv`
+- `compatibility-status.csv`
+- `ACCEPTANCE.md`
+- `statistical-summary.csv`
+- `handshake-size-breakdown.csv`
+- `DECISION_BRIEF.md`
+- `decision-scores.csv`
 
-### 6) Optional A/B session resumption analysis
+### 6) Acceptance gates and regression guards
 
-`run_resumption_ab.sh` runs OFF/ON resumption suites as separate run IDs for direct comparison.
+`check_acceptance.py` evaluates:
+
+- handshake success thresholds,
+- hybrid overhead thresholds,
+- compatibility blockers,
+- optional baseline regression limits.
+
+Thresholds are controlled in `config/slo.env`.
+
+### 7) Decision scoring
+
+`score_profiles.py` ranks modes using weighted criteria from `config/scoring_profiles.yaml`:
+
+- performance
+- compatibility
+- resource cost
+- handshake size
+- security policy fit
+
+### 8) Trend export for dashboards
+
+`export_trends.py` builds historical CSVs from `results/runs/index.csv`:
+
+- latency timeseries
+- compatibility timeseries
+- run overview timeseries
+
+### 9) CI automation
+
+GitHub Actions run smoke/full suites and upload report artifacts:
+
+- `.github/workflows/bench-smoke.yml`
+- `.github/workflows/bench-full.yml`
+
+### 10) PQC ecosystem tooling
+
+Includes algorithm catalog, executable matrix generation, playground vectors, and interop harness.
+
+---
+
+## Repository structure
+
+```text
+.
+├── config/
+│   ├── infra_profiles.csv
+│   ├── modes.csv
+│   ├── workloads.csv
+│   ├── suites.csv
+│   ├── slo.env
+│   └── scoring_profiles.yaml
+├── docs/
+│   ├── pqc_playground.md
+│   ├── pqc_interop.md
+│   └── adapter_contract.md
+├── schema/
+│   └── run_result.json
+├── scripts/
+│   ├── run_suite.sh
+│   ├── run_profiles.sh
+│   ├── validate_config.py
+│   ├── generate_profiles_report.py
+│   ├── generate_phase3_analytics.py
+│   ├── check_acceptance.py
+│   ├── score_profiles.py
+│   ├── export_trends.py
+│   ├── lab_doctor.sh
+│   ├── playground.sh
+│   ├── interop.sh
+│   └── ...
+├── vectors/
+│   ├── README.md
+│   ├── kem/
+│   ├── sig/
+│   └── catalog/
+└── results/
+    ├── runs/
+    └── trends/
+```
+
+---
 
 ## Prerequisites
 
-- Docker Desktop with Compose
+- Docker Desktop (with Compose support)
 - Python 3
+- `openssl`
 - Optional: Wireshark
-- Optional: `tshark` (for message-level handshake sizing in report generation)
+- Optional: `tshark` (for handshake message-level sizing)
 
-## Quick start
+---
+
+## Quick Start
 
 ```bash
 ./scripts/bootstrap.sh
+./scripts/lab_doctor.sh
 ./scripts/run_profiles.sh 3 50 5 off
 ```
 
-Open the latest run reports:
+Open latest reports:
 
 ```bash
 RUN_ID="$(cat results/latest-run.txt)"
@@ -111,95 +227,123 @@ open "results/runs/${RUN_ID}/reports/SUMMARY.md"
 open "results/runs/${RUN_ID}/reports/ACCEPTANCE.md"
 ```
 
-## How to use each major capability
+---
 
-### Full profile matrix (recommended default)
+## Beginner Guide (first 30 minutes)
 
-```bash
-./scripts/run_profiles.sh 3 50 5 off
-```
+### Goal
 
-### Curated benchmark suites (Phase 3)
+Run one fast benchmark and learn where decisions come from.
 
-```bash
-./scripts/run_suite.sh --suite broad_coverage
-./scripts/run_suite.sh --suite quick --seed 1337
-python3 scripts/config_query.py suites
-```
+### Steps
 
-Arguments: `<sessions> <latency_runs> <warmup> <resumption_mode>`
+1. Validate environment:
+   ```bash
+   ./scripts/lab_doctor.sh
+   ```
 
-- `sessions`: independent repeats for median aggregation (default `3`)
-- `latency_runs`: handshake samples per mode/profile/session (default `50`)
-- `warmup`: warmup handshakes before sampling (default `5`)
-- `resumption_mode`: `off` or `on`
+2. Run smoke suite:
+   ```bash
+   ./scripts/run_suite.sh --suite quick --sessions 1
+   ```
 
-### Assign a custom run ID
+3. Open generated reports:
+   ```bash
+   RUN_ID="$(cat results/latest-run.txt)"
+   open "results/runs/${RUN_ID}/reports/ACCEPTANCE.md"
+   open "results/runs/${RUN_ID}/reports/SUMMARY.md"
+   ```
 
-```bash
-RUN_ID="release-candidate-01" ./scripts/run_profiles.sh 3 50 5 off
-```
+### What to read first
 
-### Run resumption OFF/ON A/B
+- `ACCEPTANCE.md`: Go/No-Go outcome.
+- `SUMMARY.md`: profile x mode behavior and deltas.
+- `summary.csv`: machine-readable data for charting.
 
-```bash
-./scripts/run_resumption_ab.sh 1 50 5
-```
+### Mental model
 
-### Single command workflow
+- If acceptance fails: use results diagnostically, not as rollout recommendation.
+- If acceptance passes: compare tradeoffs, then move to scoring.
 
-```bash
-./scripts/run_all.sh
-```
+---
 
-### Capture environment metadata only
+## Intermediate Guide (repeatable engineering benchmarks)
 
-```bash
-./scripts/capture_env.sh
-```
+### Goal
 
-### Validate lab configuration
+Run stable experiments you can compare across releases and environments.
+
+### 1) Validate config before long runs
 
 ```bash
 python3 scripts/validate_config.py
 ```
 
-### Run lab doctor checks
+### 2) Run broad suite with deterministic seed
 
 ```bash
-./scripts/lab_doctor.sh
+./scripts/run_suite.sh --suite broad_coverage --seed 1337 --run-id-prefix team-baseline
 ```
 
-### Generate decision scoring brief
+### 3) Run resumption OFF/ON comparison
+
+```bash
+./scripts/run_resumption_ab.sh 1 50 5
+```
+
+### 4) Tune scenarios from config
+
+- Enable/disable modes: `config/modes.csv`
+- Profile behavior: `config/infra_profiles.csv`
+- Workload intensity and behavior: `config/workloads.csv`
+- Suite composition: `config/suites.csv`
+
+### 5) Export trends for dashboards
+
+```bash
+python3 scripts/export_trends.py --runs-index results/runs/index.csv --output-dir results/trends
+```
+
+---
+
+## Advanced Guide (decisioning, regression gates, and CI)
+
+### Goal
+
+Operationalize benchmark governance: ranking, regression control, CI quality gates.
+
+### 1) Create decision brief
 
 ```bash
 python3 scripts/score_profiles.py \
   --summary-csv results/runs/<run-id>/reports/summary.csv \
   --compat-csv results/runs/<run-id>/reports/compatibility-status.csv \
   --preset balanced \
-  --output-md reports/DECISION_BRIEF.md \
-  --output-csv reports/decision-scores.csv
+  --output-md results/runs/<run-id>/reports/DECISION_BRIEF.md \
+  --output-csv results/runs/<run-id>/reports/decision-scores.csv
 ```
 
-Available presets in `config/scoring_profiles.yaml`:
-
+Available presets are defined in `config/scoring_profiles.yaml`:
 - `low-latency-edge`
 - `constrained-compute`
 - `compatibility-first`
 - `balanced`
 
-### Export trend CSVs for dashboards
+### 2) Enforce regression guards against baseline
 
 ```bash
-python3 scripts/export_trends.py --runs-index results/runs/index.csv --output-dir results/trends
+python3 scripts/check_acceptance.py \
+  --results-dir results/runs/<run-id> \
+  --report-dir results/runs/<run-id>/reports \
+  --slo-file config/slo.env \
+  --baseline-summary-csv results/trends/baseline_smoke_summary.csv \
+  --baseline-compat-csv results/trends/baseline_smoke_compatibility.csv
 ```
 
-### Catalog algorithm capabilities and generate executable matrices
+### 3) Build capability-aware executable matrix
 
 ```bash
 ./scripts/catalog.sh snapshot --backends openssl,liboqs,python
-./scripts/catalog.sh list --family kem
-
 python3 scripts/build_matrix.py \
   --capabilities results/catalog/<timestamp>/capabilities.json \
   --families kem,sig \
@@ -208,121 +352,75 @@ python3 scripts/build_matrix.py \
   --output results/catalog/<timestamp>/matrix.csv
 ```
 
-### Refresh pinned image digests
+### 4) Integrate CI workflows
 
-```bash
-./scripts/pin_images.sh
-```
+- PR smoke suites: `.github/workflows/bench-smoke.yml`
+- Nightly/weekly full suites: `.github/workflows/bench-full.yml`
 
-### Cleanup old run folders (retention)
+---
 
-Dry run:
+## How to interpret outputs
 
-```bash
-./scripts/cleanup_runs.sh 10 0 true
-```
-
-Delete:
-
-```bash
-./scripts/cleanup_runs.sh 10 0 false
-```
-
-## Output layout (per run)
-
-`results/runs/<run-id>/`
-
-- `meta/`
-  - `manifest.json` (run parameters + timing + git commit)
-  - `host-metadata.json` (host and docker metadata)
-  - `slo-snapshot.env` (SLO snapshot used during run)
-- `profiles/<profile>/sessions/<session-id>/`
-  - `latency-*.csv`
-  - `concurrency-*.csv`
-  - `tls-capture-*.pcap`
-  - per-step logs
-- `speed/<session-id>/speed-*.txt`
-- `reports/`
-  - `SUMMARY.md`
-  - `summary.csv`
-  - `heatmap-p95.csv`
-  - `compatibility-status.csv`
-  - `statistical-summary.csv`
-  - `handshake-size-breakdown.csv`
-  - `ACCEPTANCE.md`
-
-Global helpers:
-
-- `results/latest-run.txt`
-- `results/runs/index.csv`
-
-## How to interpret the results
-
-Use this order every time:
+Use this order:
 
 1. `ACCEPTANCE.md`
-   - Go/no-go gate.
-   - If FAIL, treat performance data as diagnostic only.
+   - PASS/FAIL gate for policy thresholds and blockers.
 
 2. `SUMMARY.md`
-   - `Executive Summary` = absolute behavior per profile/mode.
-   - `Delta vs Classical` = migration overhead relative to baseline.
-   - `Compatibility` = operational risk visibility.
+   - Executive behavior and deltas by profile/mode.
 
-3. `summary.csv` and `heatmap-p95.csv`
-   - Use for custom charts, dashboards, and release decision docs.
+3. `DECISION_BRIEF.md`
+   - Weighted ranking for rollout recommendation context.
 
-Interpretation decomposition:
+4. CSV artifacts
+   - `summary.csv`, `heatmap-p95.csv`, `statistical-summary.csv`, trend exports.
+
+Decomposition heuristics:
 
 - KEX effect = `kex_pqc - classical`
 - Certificate effect = `cert_pqc - classical`
 - Combined PQC effect = `pqc - classical`
 - Migration overhead = `hybrid - classical`
 
-Decision heuristics:
+---
 
-- If `dc_lan` deltas are visible but `cross_region`/`mobile_edge` are small, network latency dominates user-visible impact.
-- If `constrained_cpu` regresses sharply, crypto compute is likely your bottleneck.
-- If `hybrid` stays close to baseline with clean compatibility, it is usually the safest near-term rollout path.
-- If `pqc` is secure-forward but less compatible, use as pilot/target-state before default rollout.
+## Configuration reference
 
-Packet-level interpretation:
+### `config/modes.csv`
+Mode catalog (enabled rows are benchmarked automatically).
 
-- Inspect `tls-capture-*.pcap` in Wireshark for handshake structure and size.
-- If `tshark` is present, report generation includes handshake message-level sizing automatically.
+### `config/infra_profiles.csv`
+Network/resource emulation profiles and profile concurrency defaults.
 
-## Reproducibility checklist
+### `config/workloads.csv`
+Benchmark intensity and behavior (runs, warmup, parallelism, load pattern, keepalive mix, mode ordering).
 
-- Keep images pinned by digest in `docker-compose.yml`.
-- Keep SLOs explicit in `config/slo.env`.
-- Use run-scoped output folders (`results/runs/<run-id>`).
-- Use at least 3 sessions for stable medians.
-- Validate configs before long runs (`scripts/validate_config.py`).
-- Use deterministic seeds for mode-order reproducibility (`RUN_SEED` or `run_suite.sh --seed`).
+### `config/suites.csv`
+Named suite composition linking workload + profile/mode filters + seed strategy.
 
-## Config and schema
+### `config/slo.env`
+Acceptance and regression threshold configuration.
 
-- `config/modes.csv`: source-of-truth mode catalog.
-- `config/infra_profiles.csv`: source-of-truth network/resource profiles.
-- `config/workloads.csv`: source-of-truth workload presets.
-- `schema/run_result.json`: canonical run-result schema for downstream tooling.
+### `config/scoring_profiles.yaml`
+Weighted decision presets and policy target levels.
 
-## Extra tools in this repository
+---
 
-- PQC algorithm playground: `scripts/playground.sh`
-- Interop harness: `scripts/interop.sh`
-- Capability catalog: `scripts/catalog.sh`
-- Dynamic matrix builder: `scripts/build_matrix.py`
+## CI workflows
 
-See:
+### `bench-smoke.yml`
 
-- `docs/pqc_playground.md`
-- `docs/pqc_interop.md`
-- `docs/adapter_contract.md`
+Runs fast suites on PR and manual trigger, executes regression gates, uploads reports.
+
+### `bench-full.yml`
+
+Runs nightly/weekly broader suites and publishes artifacts for trend analysis.
+
+---
 
 ## Troubleshooting
 
-If algorithm names differ in your image build:
+If algorithm names differ from expected image build:
 
 ```bash
 docker exec tls-client openssl list -groups
@@ -330,10 +428,61 @@ docker exec tls-client openssl list -kem-algorithms
 docker exec tls-client openssl list -signature-algorithms
 ```
 
+If environment checks fail:
+
+```bash
+./scripts/lab_doctor.sh
+python3 scripts/validate_config.py
+```
+
+If run outputs look inconsistent:
+
+- verify fixed seed usage (`--seed` or `RUN_SEED`)
+- ensure stable host load during run windows
+- confirm pinned image digests in `docker-compose.yml`
+
+---
+
+## Reproducibility checklist
+
+- Keep images pinned by digest (`docker-compose.yml`)
+- Keep explicit SLO thresholds (`config/slo.env`)
+- Use run-scoped artifacts (`results/runs/<run-id>`)
+- Run at least 3 sessions for stable medians
+- Validate configs before runs (`scripts/validate_config.py`)
+- Use deterministic seeds for mode ordering reproducibility
+
+---
+
+## Extra tooling (PQC playground and interop)
+
+### Playground
+
+Use `scripts/playground.sh` for backend algorithm checks and comparisons.
+
+See `docs/pqc_playground.md`.
+
+### Interop harness
+
+Use `scripts/interop.sh` + `scripts/interop_runner.py` for cross-backend interop validation and negative tests.
+
+See:
+- `docs/pqc_interop.md`
+- `docs/adapter_contract.md`
+
+### Vectors and catalog
+
+- Deterministic support vectors: `vectors/README.md`
+- Algorithm metadata catalog: `vectors/catalog/algorithms.json`
+
+---
+
 ## License
 
 Apache-2.0. See `LICENSE`.
 
+---
+
 ## Security and risk notice
 
-This project is for benchmarking and research workflows. Validate all conclusions in your own production-like environment before rollout decisions.
+This project is for benchmarking and research workflows. Validate findings in your own production-like environment before any migration or rollout decision.
