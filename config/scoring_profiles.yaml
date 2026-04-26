@@ -1,0 +1,56 @@
+{
+  "security_levels": {
+    "classical": 1,
+    "kex_pqc": 2,
+    "cert_pqc": 2,
+    "hybrid": 2,
+    "pqc": 3,
+    "hybrid_pqc_cert": 3
+  },
+  "presets": {
+    "low-latency-edge": {
+      "description": "Prioritize fast handshakes for edge and mobile paths.",
+      "policy_target_level": 2,
+      "weights": {
+        "performance": 0.45,
+        "compatibility": 0.20,
+        "resource_cost": 0.15,
+        "handshake_size": 0.10,
+        "security_policy_fit": 0.10
+      }
+    },
+    "constrained-compute": {
+      "description": "Prioritize CPU efficiency and stable operation under host pressure.",
+      "policy_target_level": 2,
+      "weights": {
+        "performance": 0.25,
+        "compatibility": 0.20,
+        "resource_cost": 0.35,
+        "handshake_size": 0.05,
+        "security_policy_fit": 0.15
+      }
+    },
+    "compatibility-first": {
+      "description": "Prioritize clean interop and operational reliability above all else.",
+      "policy_target_level": 2,
+      "weights": {
+        "performance": 0.15,
+        "compatibility": 0.50,
+        "resource_cost": 0.10,
+        "handshake_size": 0.05,
+        "security_policy_fit": 0.20
+      }
+    },
+    "balanced": {
+      "description": "Balanced migration tradeoff across latency, compatibility, cost, and policy fit.",
+      "policy_target_level": 2,
+      "weights": {
+        "performance": 0.28,
+        "compatibility": 0.24,
+        "resource_cost": 0.18,
+        "handshake_size": 0.10,
+        "security_policy_fit": 0.20
+      }
+    }
+  }
+}

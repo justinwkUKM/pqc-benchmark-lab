@@ -1,0 +1,61 @@
+name: Bench Smoke
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [quick, resumption_focus]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Lab doctor
+        run: ./scripts/lab_doctor.sh
+
+      - name: Build dynamic capability matrix
+        run: |
+          ./scripts/catalog.sh snapshot --backends openssl,liboqs,python
+          SNAPSHOT_DIR="$(ls -td results/catalog/* | sed -n '1p')"
+          python3 scripts/build_matrix.py \
+            --capabilities "${SNAPSHOT_DIR}/capabilities.json" \
+            --families kem,sig \
+            --backends openssl,liboqs,python \
+            --min-level 1 \
+            --output "${SNAPSHOT_DIR}/matrix.csv"
+
+      - name: Run smoke suite
+        run: ./scripts/run_suite.sh --suite "${{ matrix.suite }}" --sessions 1 --run-id-prefix ci-smoke
+
+      - name: Enforce regression gates
+        run: |
+          RUN_ID="$(cat results/latest-run.txt)"
+          REPORT_DIR="results/runs/${RUN_ID}/reports"
+          python3 scripts/check_acceptance.py \
+            --results-dir "results/runs/${RUN_ID}" \
+            --report-dir "${REPORT_DIR}" \
+            --slo-file "config/slo.env" \
+            --baseline-summary-csv "results/trends/baseline_smoke_summary.csv" \
+            --baseline-compat-csv "results/trends/baseline_smoke_compatibility.csv"
+
+      - name: Upload smoke reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-${{ matrix.suite }}-artifacts
+          path: |
+            results/latest-run.txt
+            results/runs/*/reports/*.md
+            results/runs/*/reports/*.csv
+            results/trends/*.csv

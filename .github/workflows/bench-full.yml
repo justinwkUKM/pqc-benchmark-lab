@@ -1,0 +1,77 @@
+name: Bench Full
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Suite to run'
+        required: false
+        default: 'broad_coverage'
+        type: choice
+        options:
+          - broad_coverage
+          - stress_pattern
+
+jobs:
+  nightly:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 3 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Lab doctor
+        run: ./scripts/lab_doctor.sh
+
+      - name: Run nightly full suite
+        run: |
+          SUITE="${{ github.event.inputs.suite || 'broad_coverage' }}"
+          ./scripts/run_suite.sh --suite "${SUITE}" --run-id-prefix ci-nightly
+
+      - name: Upload nightly reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-full-artifacts
+          path: |
+            results/latest-run.txt
+            results/runs/*/reports/*.md
+            results/runs/*/reports/*.csv
+            results/trends/*.csv
+
+  weekly:
+    if: github.event.schedule == '0 4 * * 0'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Lab doctor
+        run: ./scripts/lab_doctor.sh
+
+      - name: Run weekly stress suite
+        run: ./scripts/run_suite.sh --suite stress_pattern --run-id-prefix ci-weekly
+
+      - name: Upload weekly reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-stress-artifacts
+          path: |
+            results/latest-run.txt
+            results/runs/*/reports/*.md
+            results/runs/*/reports/*.csv
+            results/trends/*.csv

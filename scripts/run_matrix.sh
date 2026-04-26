@@ -2,19 +2,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/common.sh"
 
 RUNS="${1:-50}"
 WARMUP="${2:-5}"
 PARALLEL="${3:-100}"
 ROUNDS="${4:-10}"
 
-MODES=(
-  classical
-  kex_pqc
-  cert_pqc
-  hybrid
-  pqc
-)
+python3 "${SCRIPT_DIR}/validate_config.py"
+MODES=()
+while IFS= read -r line; do
+  [[ -n "${line}" ]] && MODES+=("${line}")
+done < <(python3 "${SCRIPT_DIR}/config_query.py" modes)
 
 for mode in "${MODES[@]}"; do
   "${SCRIPT_DIR}/run_latency.sh" "${mode}" "${RUNS}" "${WARMUP}"

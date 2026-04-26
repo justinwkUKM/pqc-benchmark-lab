@@ -1,0 +1,4 @@
+mode,composite_score,performance,compatibility,resource_cost,handshake_size,security_policy_fit,latency_p95_median,cpu_peak_median,pcap_bytes_median,security_level,tradeoff_note
+hybrid,98.26856861780621,93.816316492165,100.0,100.0,100.0,100.0,0.023941,2.0,24.0,2.0,Strongest on compatibility; main watch item is performance.
+classical,92.0,100.0,100.0,100.0,100.0,60.0,0.023061,2.0,24.0,1.0,"Trails leader by 6.27 points; strongest on performance, weakest on policy."
+pqc,72.0,0.0,100.0,100.0,100.0,100.0,0.037292,2.0,24.0,3.0,"Trails leader by 26.27 points; strongest on compatibility, weakest on performance."

@@ -8,11 +8,53 @@ MODE="${1:-classical}"
 RUNS="${2:-30}"
 WARMUP="${3:-5}"
 RESUMPTION_MODE="${RESUMPTION_MODE:-off}"
+CURL_HTTP_VERSION="${CURL_HTTP_VERSION:-http1.1}"
+KEEPALIVE_MODE="${KEEPALIVE_MODE:-}"
+MTLS_MODE="${MTLS_MODE:-off}"
 
-CURL_FLAGS=(--http1.1 --cacert /opt/nginx/certs/server.crt)
-if [[ "${RESUMPTION_MODE}" == "off" ]]; then
-  CURL_FLAGS+=(--no-keepalive -H "Connection: close")
+if [[ -z "${KEEPALIVE_MODE}" ]]; then
+  if [[ "${RESUMPTION_MODE}" == "off" ]]; then
+    KEEPALIVE_MODE="close"
+  else
+    KEEPALIVE_MODE="keepalive"
+  fi
 fi
+
+build_curl_flags() {
+  local run_idx="$1"
+  CURL_FLAGS=(--cacert /opt/nginx/certs/server.crt)
+  case "${CURL_HTTP_VERSION}" in
+    http2) CURL_FLAGS+=(--http2) ;;
+    *) CURL_FLAGS+=(--http1.1) ;;
+  esac
+  if [[ "${MTLS_MODE}" == "on" && -f "${LAB_ROOT}/certs/client.crt" && -f "${LAB_ROOT}/certs/client.key" ]]; then
+    CURL_FLAGS+=(--cert /opt/nginx/certs/client.crt --key /opt/nginx/certs/client.key)
+  fi
+  case "${KEEPALIVE_MODE}" in
+    close)
+      CURL_FLAGS+=(--no-keepalive -H "Connection: close")
+      ;;
+    keepalive)
+      ;;
+    mix30)
+      if (( run_idx % 10 < 3 )); then
+        CURL_FLAGS+=(--no-keepalive -H "Connection: close")
+      fi
+      ;;
+    mix50)
+      if (( run_idx % 2 == 0 )); then
+        CURL_FLAGS+=(--no-keepalive -H "Connection: close")
+      fi
+      ;;
+    mix70)
+      if (( run_idx % 10 < 7 )); then
+        CURL_FLAGS+=(--no-keepalive -H "Connection: close")
+      fi
+      ;;
+    *)
+      ;;
+  esac
+}
 
 set_mode "${MODE}"
 
@@ -20,13 +62,15 @@ OUT_CSV="${RESULTS_DIR}/latency-${MODE}-$(timestamp).csv"
 echo "run,success,error,dns_lookup,tcp_connect,tls_setup,first_byte,total" >"${OUT_CSV}"
 
 echo "Warmup: ${WARMUP} handshakes (resumption=${RESUMPTION_MODE})"
-for _ in $(seq 1 "${WARMUP}"); do
+for i in $(seq 1 "${WARMUP}"); do
+  build_curl_flags "${i}"
   docker exec tls-client curl -o /dev/null -s "${CURL_FLAGS[@]}" https://tls-server:4433 >/dev/null 2>&1 || true
 done
 
-echo "Measuring latency: mode=${MODE}, runs=${RUNS}"
+echo "Measuring latency: mode=${MODE}, runs=${RUNS}, keepalive=${KEEPALIVE_MODE}, http=${CURL_HTTP_VERSION}, mtls=${MTLS_MODE}"
 for i in $(seq 1 "${RUNS}"); do
   TMP_ERR="$(mktemp)"
+  build_curl_flags "${i}"
   if line="$(docker exec tls-client curl -w '%{time_namelookup},%{time_connect},%{time_appconnect},%{time_starttransfer},%{time_total}' -o /dev/null -s "${CURL_FLAGS[@]}" https://tls-server:4433 2>"${TMP_ERR}")"; then
     echo "${i},1,,${line}" >>"${OUT_CSV}"
   else

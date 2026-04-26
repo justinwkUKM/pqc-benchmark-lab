@@ -9,6 +9,7 @@ usage() {
 Usage:
   openssl_adapter.sh list --family kem|sig
   openssl_adapter.sh run --family kem|sig --algorithm <name> --out <json-path>
+  openssl_adapter.sh interop --family kem|sig --algorithm <name> --operation <name> --in <json> --out <json-path>
 EOF
 }
 
@@ -68,12 +69,61 @@ run_speed() {
   fi
 }
 
+emit_interop_json() {
+  local out_path="$1"
+  local family="$2"
+  local algorithm="$3"
+  local operation="$4"
+  local status="$5"
+  local reason="$6"
+  local message="$7"
+  local data_json="${8:-{}}"
+  python3 - "${out_path}" "${family}" "${algorithm}" "${operation}" "${status}" "${reason}" "${message}" "${data_json}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+out_path, family, algorithm, operation, status, reason, message, data_json = sys.argv[1:]
+payload = {
+    "backend": "openssl",
+    "family": family,
+    "algorithm": algorithm,
+    "operation": operation,
+    "status": status,
+    "error_code": reason,
+    "error_message": message,
+    "data": json.loads(data_json),
+}
+Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+Path(out_path).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+}
+
+run_interop() {
+  local family="$1"
+  local algorithm="$2"
+  local operation="$3"
+  local in_path="$4"
+  local out_path="$5"
+
+  ensure_up >/dev/null
+  python3 "${ADAPTER_DIR}/openssl_interop.py" \
+    --backend "openssl" \
+    --family "${family}" \
+    --algorithm "${algorithm}" \
+    --operation "${operation}" \
+    --in "${in_path}" \
+    --out "${out_path}"
+}
+
 COMMAND="${1:-}"
 shift || true
 
 FAMILY=""
 ALGORITHM=""
 OUT_PATH=""
+IN_PATH=""
+OPERATION=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -87,6 +137,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --out)
       OUT_PATH="$2"
+      shift 2
+      ;;
+    --in)
+      IN_PATH="$2"
+      shift 2
+      ;;
+    --operation)
+      OPERATION="$2"
       shift 2
       ;;
     *)
@@ -105,6 +163,10 @@ case "${COMMAND}" in
   run)
     [[ -n "${FAMILY}" && -n "${ALGORITHM}" && -n "${OUT_PATH}" ]] || { usage; exit 1; }
     run_speed "${FAMILY}" "${ALGORITHM}" "${OUT_PATH}"
+    ;;
+  interop)
+    [[ -n "${FAMILY}" && -n "${ALGORITHM}" && -n "${OPERATION}" && -n "${IN_PATH}" && -n "${OUT_PATH}" ]] || { usage; exit 1; }
+    run_interop "${FAMILY}" "${ALGORITHM}" "${OPERATION}" "${IN_PATH}" "${OUT_PATH}"
     ;;
   *)
     usage

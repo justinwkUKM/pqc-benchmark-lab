@@ -9,7 +9,11 @@ WARMUP="${2:-10}"
 PARALLEL="${3:-200}"
 ROUNDS="${4:-20}"
 
-MODES=(classical kex_pqc cert_pqc hybrid pqc)
+python3 "${SCRIPT_DIR}/validate_config.py"
+MODES=()
+while IFS= read -r line; do
+  [[ -n "${line}" ]] && MODES+=("${line}")
+done < <(python3 "${SCRIPT_DIR}/config_query.py" modes)
 PROFILES=(stress_lan stress_cpu_bound stress_extreme)
 
 set_server_limits() {

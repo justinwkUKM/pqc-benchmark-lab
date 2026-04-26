@@ -37,6 +37,8 @@ certs/*.pfx
 results/*
 !results/.gitkeep
 !results/RESULTS_TEMPLATE.md
+!results/trends/
+!results/trends/*.csv
 
 # ------------------------------
 # Python cache / virtualenv
