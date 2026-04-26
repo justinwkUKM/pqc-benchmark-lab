@@ -188,20 +188,23 @@ def delta(v: float, b: float) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results-dir", required=True)
+    ap.add_argument("--report-dir", default=None)
     ap.add_argument("--slo-file", required=True)
     args = ap.parse_args()
 
     root = Path(args.results_dir)
     root.mkdir(parents=True, exist_ok=True)
+    report_dir = Path(args.report_dir).resolve() if args.report_dir else (root / "reports")
+    report_dir.mkdir(parents=True, exist_ok=True)
     slo = parse_slo(Path(args.slo_file))
-    summary_csv = root / "summary.csv"
-    heatmap_csv = root / "heatmap-p95.csv"
-    summary_md = root / "SUMMARY.md"
+    summary_csv = report_dir / "summary.csv"
+    heatmap_csv = report_dir / "heatmap-p95.csv"
+    summary_md = report_dir / "SUMMARY.md"
 
     rows: list[dict[str, object]] = []
 
     for profile in PROFILES:
-        profile_root = root / profile / "sessions"
+        profile_root = root / "profiles" / profile / "sessions"
         if not profile_root.exists():
             continue
         session_dirs = sorted([p for p in profile_root.iterdir() if p.is_dir()])
@@ -288,7 +291,7 @@ def main() -> int:
             w.writerow(row)
 
     # compatibility table from status
-    status_file = root / "compatibility-status.csv"
+    status_file = report_dir / "compatibility-status.csv"
     compat = defaultdict(lambda: {"pass": 0, "fail": 0, "reasons": Counter()})
     if status_file.exists():
         for r in csv.DictReader(status_file.open(newline="")):

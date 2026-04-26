@@ -1,121 +1,41 @@
 # TLS + PQC Benchmark Lab
 
-Reproducible Docker lab for benchmarking TLS handshake behavior across classical, hybrid, and post-quantum cryptography (PQC) modes.
+This repository is a reproducible benchmarking lab for evaluating TLS migration options across:
 
-It is designed for repeatable comparative runs, profile-based infrastructure emulation, and report generation you can use in migration decisions.
+- classical cryptography,
+- hybrid classical+PQC,
+- pure post-quantum cryptography (PQC).
 
-## What This Lab Measures
+It helps engineering teams answer practical rollout questions with repeatable data instead of one-off spot checks.
 
-- Handshake latency (`p50`, `p95`, `p99`)
-- Success/failure rate and error categories
-- Host pressure (CPU and memory during concurrency tests)
-- Handshake payload size from packet capture (`.pcap`)
-- Overhead delta versus classical baseline
+## Why this repository matters
 
-## Prerequisites
+Organizations need to prepare for post-quantum cryptography, but migration decisions are constrained by latency, compatibility, and infrastructure cost.
 
-- Docker Desktop with Compose
-- Python 3
-- Optional: Wireshark for manual packet inspection
-- Optional: `tshark` for automatic TLS handshake message sizing in reports
+This lab is important because it lets you:
 
-## Quick Start
+- quantify handshake overhead by mode,
+- separate KEX overhead from certificate-signature overhead,
+- test behavior under multiple realistic network/host profiles,
+- apply acceptance gates before recommending rollout.
 
-```bash
-./scripts/bootstrap.sh
-./scripts/run_profiles.sh 3 50 5 off
-```
+## What this repository can do
 
-This boots the lab and runs the full multi-profile matrix with defaults.
+### 1) Infrastructure profile emulation
 
-## Sequential Run Order (Recommended)
+Runs the same crypto matrix across these profiles:
 
-Use this sequence when you want full control and clean, reproducible outputs.
+- `dc_lan`: near-zero latency datacenter path
+- `cross_region`: 60ms/10ms jitter/0.1% loss/100mbit
+- `mobile_edge`: 120ms/30ms jitter/1% loss/10mbit
+- `constrained_cpu`: LAN network with server CPU+memory caps
+- `burst_gateway`: LAN network with high burst concurrency
 
-1) Start clean for profile aggregation:
+Profiles are defined in `config/infra_profiles.csv` and applied via `tc` + `docker update`.
 
-```bash
-rm -rf results/profiles
-```
+### 2) TLS crypto scenario matrix
 
-2) Bootstrap containers and baseline certs:
-
-```bash
-./scripts/bootstrap.sh
-```
-
-3) Capture environment metadata (host + Docker + SLO snapshot):
-
-```bash
-./scripts/capture_env.sh
-```
-
-4) Run the multi-profile benchmark matrix (randomized mode order per profile):
-
-```bash
-./scripts/run_profiles.sh 3 50 5 off
-```
-
-5) Review generated reports:
-
-```bash
-open results/profiles/SUMMARY.md
-open results/profiles/ACCEPTANCE.md
-```
-
-Optional post-runs:
-
-- TLS resumption A/B comparison:
-
-```bash
-./scripts/run_resumption_ab.sh 1 50 5
-```
-
-- One-command end-to-end run:
-
-```bash
-./scripts/run_all.sh
-```
-
-## Architecture Diagram
-
-```mermaid
-flowchart LR
-  U[User / CI] --> B[bootstrap.sh]
-  B --> D[(Docker Compose)]
-  D --> C["tls-client container<br/>(OQS OpenSSL + curl)"]
-  D --> S["tls-server container<br/>(OQS NGINX)"]
-
-  R[run_profiles.sh] --> P["Apply infra profile<br/>(tc + docker update)"]
-  P --> M["Run mode matrix<br/>classical/kex_pqc/cert_pqc/hybrid/pqc"]
-  M --> L["Latency<br/>run_latency.sh"]
-  M --> H["Capture<br/>capture_handshake.sh"]
-  M --> Q["Concurrency<br/>run_concurrency.sh"]
-  M --> SP["Crypto speed<br/>run_speed.sh"]
-
-  L --> O[(results/profiles)]
-  H --> O
-  Q --> O
-  SP --> O
-
-  O --> G[generate_profiles_report.py]
-  G --> A[check_acceptance.py]
-  A --> F[SUMMARY.md + ACCEPTANCE.md + CSVs]
-```
-
-## Experiment Matrix
-
-### Infrastructure profiles
-
-- `dc_lan`: `0ms` delay, `0ms` jitter, `0%` loss, `1gbit`
-- `cross_region`: `60ms` delay, `10ms` jitter, `0.1%` loss, `100mbit`
-- `mobile_edge`: `120ms` delay, `30ms` jitter, `1%` loss, `10mbit`
-- `constrained_cpu`: LAN network + constrained CPU/memory limits
-- `burst_gateway`: LAN network + high-burst concurrency profile
-
-Profile definitions live in `config/infra_profiles.csv` and are applied using `tc` and `docker update`.
-
-### TLS crypto modes
+Supported benchmark modes:
 
 - `classical`: RSA-2048 + X25519
 - `kex_pqc`: RSA-2048 + ML-KEM-768
@@ -123,9 +43,62 @@ Profile definitions live in `config/infra_profiles.csv` and are applied using `t
 - `hybrid`: RSA-2048 + X25519MLKEM768
 - `pqc`: ML-DSA-65 + ML-KEM-768
 
-## Core Workflows
+### 3) Measurement workflows
 
-### Full profile suite
+- Latency sampling (`p50`, `p95`, `p99`)
+- Concurrency pressure (`ok/fail` by round, CPU/memory snapshots)
+- TLS packet capture (`.pcap` artifacts)
+- Raw crypto throughput (`openssl speed`)
+
+### 4) Run isolation and traceability
+
+Each `run_profiles.sh` execution generates a unique run ID and stores all artifacts in one folder:
+
+- `results/runs/<run-id>/...`
+
+No cross-run mixing occurs in report generation.
+
+### 5) Reporting and gates
+
+Per run, the lab generates:
+
+- `reports/SUMMARY.md`
+- `reports/summary.csv`
+- `reports/heatmap-p95.csv`
+- `reports/compatibility-status.csv`
+- `reports/ACCEPTANCE.md`
+
+Acceptance checks are driven by thresholds in `config/slo.env`.
+
+### 6) Optional A/B session resumption analysis
+
+`run_resumption_ab.sh` runs OFF/ON resumption suites as separate run IDs for direct comparison.
+
+## Prerequisites
+
+- Docker Desktop with Compose
+- Python 3
+- Optional: Wireshark
+- Optional: `tshark` (for message-level handshake sizing in report generation)
+
+## Quick start
+
+```bash
+./scripts/bootstrap.sh
+./scripts/run_profiles.sh 3 50 5 off
+```
+
+Open the latest run reports:
+
+```bash
+RUN_ID="$(cat results/latest-run.txt)"
+open "results/runs/${RUN_ID}/reports/SUMMARY.md"
+open "results/runs/${RUN_ID}/reports/ACCEPTANCE.md"
+```
+
+## How to use each major capability
+
+### Full profile matrix (recommended default)
 
 ```bash
 ./scripts/run_profiles.sh 3 50 5 off
@@ -133,131 +106,136 @@ Profile definitions live in `config/infra_profiles.csv` and are applied using `t
 
 Arguments: `<sessions> <latency_runs> <warmup> <resumption_mode>`
 
-- `sessions` default: `3`
-- `latency_runs` default: `50`
-- `warmup` default: `5`
+- `sessions`: independent repeats for median aggregation (default `3`)
+- `latency_runs`: handshake samples per mode/profile/session (default `50`)
+- `warmup`: warmup handshakes before sampling (default `5`)
 - `resumption_mode`: `off` or `on`
 
-### TLS resumption A/B suite
+### Assign a custom run ID
+
+```bash
+RUN_ID="release-candidate-01" ./scripts/run_profiles.sh 3 50 5 off
+```
+
+### Run resumption OFF/ON A/B
 
 ```bash
 ./scripts/run_resumption_ab.sh 1 50 5
 ```
 
-Generates separate OFF/ON suites under `results/resumption/`.
-
-### One-command default workflow
+### Single command workflow
 
 ```bash
 ./scripts/run_all.sh
 ```
 
-## Output Layout
+### Capture environment metadata only
 
-Primary output root: `results/profiles/`
+```bash
+./scripts/capture_env.sh
+```
 
-Key generated files:
+### Refresh pinned image digests
 
-- `results/profiles/SUMMARY.md`
-- `results/profiles/summary.csv`
-- `results/profiles/heatmap-p95.csv`
-- `results/profiles/compatibility-status.csv`
-- `results/profiles/ACCEPTANCE.md`
+```bash
+./scripts/pin_images.sh
+```
 
-What each file means:
+### Cleanup old run folders (retention)
 
-- `results/profiles/ACCEPTANCE.md`: final pass/fail gate against SLO thresholds in `config/slo.env`.
-- `results/profiles/SUMMARY.md`: human-readable report for decisions (tables + deltas + compatibility).
-- `results/profiles/summary.csv`: machine-readable aggregate metrics (best source for custom charts).
-- `results/profiles/heatmap-p95.csv`: profile x mode matrix of handshake `p95` values.
-- `results/profiles/compatibility-status.csv`: raw pass/fail rows per `session/profile/mode/step` with reason text.
+Dry run:
 
-Per profile/session artifacts:
+```bash
+./scripts/cleanup_runs.sh 10 0 true
+```
 
-- `results/profiles/<profile>/sessions/<session-id>/latency-*.csv`
-- `results/profiles/<profile>/sessions/<session-id>/concurrency-*.csv`
-- `results/profiles/<profile>/sessions/<session-id>/tls-capture-*.pcap`
+Delete:
 
-Session-scoped supporting artifacts:
+```bash
+./scripts/cleanup_runs.sh 10 0 false
+```
 
-- `results/profiles/_session-speed/<session-id>/speed-*.txt`: raw `openssl speed` throughput output.
-- `results/environment/host-metadata-*.json`: host and Docker metadata snapshot for reproducibility.
+## Output layout (per run)
 
-## Interpretation Model
+`results/runs/<run-id>/`
 
-Use `classical` as baseline for deltas:
+- `meta/`
+  - `manifest.json` (run parameters + timing + git commit)
+  - `host-metadata.json` (host and docker metadata)
+  - `slo-snapshot.env` (SLO snapshot used during run)
+- `profiles/<profile>/sessions/<session-id>/`
+  - `latency-*.csv`
+  - `concurrency-*.csv`
+  - `tls-capture-*.pcap`
+  - per-step logs
+- `speed/<session-id>/speed-*.txt`
+- `reports/`
+  - `SUMMARY.md`
+  - `summary.csv`
+  - `heatmap-p95.csv`
+  - `compatibility-status.csv`
+  - `ACCEPTANCE.md`
 
-- KEX overhead: `kex_pqc - classical`
-- Certificate overhead: `cert_pqc - classical`
-- Combined PQC overhead: `pqc - classical`
-- Migration profile overhead: `hybrid - classical`
+Global helpers:
 
-Recommended interpretation flow:
+- `results/latest-run.txt`
+- `results/runs/index.csv`
 
-1. Read `results/profiles/ACCEPTANCE.md` first.
-   - If this fails, treat performance numbers as diagnostic only, not rollout-ready.
-2. Read `results/profiles/SUMMARY.md` next.
+## How to interpret the results
+
+Use this order every time:
+
+1. `ACCEPTANCE.md`
+   - Go/no-go gate.
+   - If FAIL, treat performance data as diagnostic only.
+
+2. `SUMMARY.md`
    - `Executive Summary` = absolute behavior per profile/mode.
-   - `Delta vs Classical` = relative overhead/benefit.
-3. Use `results/profiles/summary.csv` for deeper analysis and plotting.
+   - `Delta vs Classical` = migration overhead relative to baseline.
+   - `Compatibility` = operational risk visibility.
 
-Example decision memo (short format):
+3. `summary.csv` and `heatmap-p95.csv`
+   - Use for custom charts, dashboards, and release decision docs.
 
-- Scope: `3` sessions, `5` infra profiles, `5` crypto modes, resumption `off`.
-- Gate result: `ACCEPTANCE.md` is `PASS`/`FAIL` (state exact reason if fail).
-- Migration call: choose `hybrid` if p95 overhead stays within SLO and compatibility is clean.
-- Pilot call: choose `pqc` when compatibility is acceptable and overhead is tolerable for target profiles.
-- Rollout note: prioritize profiles where business latency is most sensitive (`dc_lan` vs `cross_region` etc.).
+Interpretation decomposition:
 
-How to reason about outcomes:
+- KEX effect = `kex_pqc - classical`
+- Certificate effect = `cert_pqc - classical`
+- Combined PQC effect = `pqc - classical`
+- Migration overhead = `hybrid - classical`
 
-- If deltas are small in `cross_region`/`mobile_edge` but visible in `dc_lan`, network latency dominates and crypto overhead is less user-visible.
-- If `constrained_cpu` shows rising `p95` or failures, crypto compute cost is the likely bottleneck.
-- If `hybrid` stays near `classical` with clean compatibility, it is typically the safest near-term migration profile.
-- If `pqc` has larger overhead or compatibility issues, use it as pilot/target-state rather than immediate default.
+Decision heuristics:
+
+- If `dc_lan` deltas are visible but `cross_region`/`mobile_edge` are small, network latency dominates user-visible impact.
+- If `constrained_cpu` regresses sharply, crypto compute is likely your bottleneck.
+- If `hybrid` stays close to baseline with clean compatibility, it is usually the safest near-term rollout path.
+- If `pqc` is secure-forward but less compatible, use as pilot/target-state before default rollout.
 
 Packet-level interpretation:
 
-- Open `results/profiles/<profile>/sessions/<session-id>/tls-capture-*.pcap` in Wireshark for manual handshake inspection.
-- If `tshark` is installed, report generation includes handshake message-level sizing automatically.
+- Inspect `tls-capture-*.pcap` in Wireshark for handshake structure and size.
+- If `tshark` is present, report generation includes handshake message-level sizing automatically.
 
-## Acceptance Checks
+## Reproducibility checklist
 
-Automatically evaluated in `results/profiles/ACCEPTANCE.md`:
+- Keep images pinned by digest in `docker-compose.yml`.
+- Keep SLOs explicit in `config/slo.env`.
+- Use run-scoped output folders (`results/runs/<run-id>`).
+- Use at least 3 sessions for stable medians.
 
-- shortlisted modes handshake success >= `99.5%`
-- `hybrid` p95 overhead <= `15%` in `dc_lan` and `cross_region`
-- no unresolved compatibility blockers
+## Extra tools in this repository
 
-SLO thresholds are configured in `config/slo.env`.
+- PQC algorithm playground: `scripts/playground.sh`
+- Interop harness: `scripts/interop.sh`
 
-## Additional PQC Utilities
+See:
 
-### Algorithm playground
-
-```bash
-./scripts/playground.sh list --family kem
-./scripts/playground.sh list --family sig
-./scripts/playground.sh run --backend openssl --family kem --alg mlkem --param 768
-./scripts/playground.sh compare --backend-a openssl --backend-b liboqs --family sig --alg mldsa --param 65
-./scripts/playground.sh vector --backend openssl --vector-file vectors/kem/core-support.json
-```
-
-See `docs/pqc_playground.md`.
-
-### Interoperability harness
-
-```bash
-./scripts/interop.sh matrix --family kem --alg mlkem --param 768 --backends openssl,liboqs,python
-./scripts/interop.sh negative --family sig --alg mldsa --param 65 --backends openssl,liboqs,python
-./scripts/interop.sh report --run-dir results/interop/<timestamp>
-```
-
-See `docs/pqc_interop.md`.
+- `docs/pqc_playground.md`
+- `docs/pqc_interop.md`
 
 ## Troubleshooting
 
-If PQC names are unavailable in your container image:
+If algorithm names differ in your image build:
 
 ```bash
 docker exec tls-client openssl list -groups
@@ -265,16 +243,10 @@ docker exec tls-client openssl list -kem-algorithms
 docker exec tls-client openssl list -signature-algorithms
 ```
 
-Capture reproducibility metadata snapshot:
-
-```bash
-./scripts/capture_env.sh
-```
-
 ## License
 
-Licensed under Apache License 2.0. See `LICENSE`.
+Apache-2.0. See `LICENSE`.
 
-## Security and Risk Notice
+## Security and risk notice
 
-This repository is for benchmarking and research workflows. It is provided on an "AS IS" basis, without warranties or guarantees. You are responsible for validation and safe usage in your own environment.
+This project is for benchmarking and research workflows. Validate all conclusions in your own production-like environment before rollout decisions.

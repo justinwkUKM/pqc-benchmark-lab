@@ -8,15 +8,16 @@ SESSIONS="${1:-1}"
 RUNS="${2:-50}"
 WARMUP="${3:-5}"
 
-OFF_DIR="${RESULTS_DIR}/resumption/off"
-ON_DIR="${RESULTS_DIR}/resumption/on"
+PARENT_RUN_ID="${RUN_ID:-resumption-$(timestamp)}"
+OFF_RUN_ID="${PARENT_RUN_ID}-off"
+ON_RUN_ID="${PARENT_RUN_ID}-on"
 
 echo "Running resumption OFF suite..."
-RESULTS_DIR="${OFF_DIR}" "${SCRIPT_DIR}/run_profiles.sh" "${SESSIONS}" "${RUNS}" "${WARMUP}" off
+RUN_ID="${OFF_RUN_ID}" "${SCRIPT_DIR}/run_profiles.sh" "${SESSIONS}" "${RUNS}" "${WARMUP}" off
 
 echo "Running resumption ON suite..."
-RESULTS_DIR="${ON_DIR}" "${SCRIPT_DIR}/run_profiles.sh" "${SESSIONS}" "${RUNS}" "${WARMUP}" on
+RUN_ID="${ON_RUN_ID}" "${SCRIPT_DIR}/run_profiles.sh" "${SESSIONS}" "${RUNS}" "${WARMUP}" on
 
 echo "A/B complete:"
-echo "- OFF: ${OFF_DIR}/profiles/SUMMARY.md"
-echo "- ON:  ${ON_DIR}/profiles/SUMMARY.md"
+echo "- OFF: ${RESULTS_DIR}/runs/${OFF_RUN_ID}/reports/SUMMARY.md"
+echo "- ON:  ${RESULTS_DIR}/runs/${ON_RUN_ID}/reports/SUMMARY.md"

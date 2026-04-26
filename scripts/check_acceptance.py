@@ -39,12 +39,15 @@ def as_float(v: str) -> float:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results-dir", required=True)
+    ap.add_argument("--report-dir", default=None)
     ap.add_argument("--slo-file", required=True)
     args = ap.parse_args()
 
     root = Path(args.results_dir)
-    summary_csv = root / "summary.csv"
-    out_file = root / "ACCEPTANCE.md"
+    report_dir = Path(args.report_dir).resolve() if args.report_dir else (root / "reports")
+    report_dir.mkdir(parents=True, exist_ok=True)
+    summary_csv = report_dir / "summary.csv"
+    out_file = report_dir / "ACCEPTANCE.md"
     slo = parse_slo(Path(args.slo_file))
 
     if not summary_csv.exists():
@@ -91,7 +94,7 @@ def main() -> int:
     checks.append(("Hybrid p95 overhead threshold", pass_hybrid, "; ".join(hdetails)))
 
     # 3) no unresolved compatibility blockers
-    compat_file = root / "compatibility-status.csv"
+    compat_file = report_dir / "compatibility-status.csv"
     compatibility_ok = True
     cdetails = []
     if compat_file.exists():

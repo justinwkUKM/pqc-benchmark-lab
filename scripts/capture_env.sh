@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-OUT_DIR="${RESULTS_DIR}/environment"
-OUT_FILE="${OUT_DIR}/host-metadata-$(timestamp).json"
+OUT_DIR="${RESULTS_DIR}/meta"
+OUT_FILE="${OUT_DIR}/host-metadata.json"
 mkdir -p "${OUT_DIR}"
 
 load_slo

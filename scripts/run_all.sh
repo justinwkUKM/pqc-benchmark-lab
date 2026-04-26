@@ -6,4 +6,4 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 "${SCRIPT_DIR}/bootstrap.sh"
 "${SCRIPT_DIR}/run_profiles.sh" 3 50 5 off
 
-echo "All scenarios completed. Results are in ../results/profiles"
+echo "All scenarios completed. Latest run ID is in results/latest-run.txt"
