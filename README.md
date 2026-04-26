@@ -34,6 +34,7 @@ A detailed analysis of TLS handshake performance comparing Classical vs. Hybrid 
 - [Beginner Guide](#beginner-guide-first-30-minutes)
 - [Intermediate Guide](#intermediate-guide-repeatable-engineering-benchmarks)
 - [Advanced Guide](#advanced-guide-decisioning-regression-gates-and-ci)
+- [System Architecture](#system-architecture)
 - [How to interpret outputs](#how-to-interpret-outputs)
 - [Configuration reference](#configuration-reference)
 - [CI workflows](#ci-workflows)
@@ -71,6 +72,38 @@ This repository uses OQS-enabled Docker images for client/server paths so the sa
 in a comparable framework.
 
 ---
+
+## System Architecture
+
+The following diagram illustrates the lab workflow from initialization through to analytical outputs:
+
+```mermaid
+flowchart TD
+  U[User / CI] --> B[bootstrap.sh]
+  B --> D[(Docker Compose)]
+  D --> C["tls-client container<br/>(OQS OpenSSL + curl)"]
+  D --> S["tls-server container<br/>(OQS NGINX)"]
+
+  R[run_profiles.sh] --> P["Apply infra profile<br/>(scripts/config_query.py)"]
+  P --> M["Run mode matrix<br/>(config/modes.csv)"]
+  M --> L["Latency<br/>run_latency.sh"]
+  M --> H["Capture<br/>capture_handshake.sh"]
+  M --> Q["Concurrency<br/>run_concurrency.sh"]
+  M --> SP["Crypto speed<br/>run_speed.sh"]
+
+  L --> O[(results)]
+  H --> O
+  Q --> O
+  SP --> O
+
+  O --> G[generate_report.sh]
+  G --> PH3[generate_phase3_analytics.py]
+  PH3 --> SC[score_profiles.py]
+  SC --> F[REPORT.md + SUMMARY.md + DECISION_BRIEF.md]
+```
+
+---
+
 
 ## Key capabilities
 
