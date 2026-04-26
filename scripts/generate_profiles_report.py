@@ -10,8 +10,24 @@ import subprocess
 from collections import Counter, defaultdict
 from pathlib import Path
 
-PROFILES = ["dc_lan", "cross_region", "mobile_edge", "constrained_cpu", "burst_gateway"]
-MODES = ["classical", "kex_pqc", "cert_pqc", "hybrid", "pqc"]
+LAB_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_PROFILES = ["dc_lan", "cross_region", "mobile_edge", "constrained_cpu", "burst_gateway"]
+DEFAULT_MODES = ["classical", "kex_pqc", "cert_pqc", "hybrid", "pqc"]
+
+
+def load_enabled_values(path: Path, key: str, fallback: list[str]) -> list[str]:
+    if not path.exists():
+        return fallback
+    out: list[str] = []
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            enabled = (row.get("enabled") or "true").strip().lower()
+            if enabled in {"false", "0", "no", "off"}:
+                continue
+            val = (row.get(key) or "").strip()
+            if val:
+                out.append(val)
+    return out or fallback
 
 
 def percentile(sorted_vals: list[float], q: float) -> float:
@@ -197,18 +213,20 @@ def main() -> int:
     report_dir = Path(args.report_dir).resolve() if args.report_dir else (root / "reports")
     report_dir.mkdir(parents=True, exist_ok=True)
     slo = parse_slo(Path(args.slo_file))
+    profiles = load_enabled_values(LAB_ROOT / "config" / "infra_profiles.csv", "profile", DEFAULT_PROFILES)
+    modes = load_enabled_values(LAB_ROOT / "config" / "modes.csv", "mode", DEFAULT_MODES)
     summary_csv = report_dir / "summary.csv"
     heatmap_csv = report_dir / "heatmap-p95.csv"
     summary_md = report_dir / "SUMMARY.md"
 
     rows: list[dict[str, object]] = []
 
-    for profile in PROFILES:
+    for profile in profiles:
         profile_root = root / "profiles" / profile / "sessions"
         if not profile_root.exists():
             continue
         session_dirs = sorted([p for p in profile_root.iterdir() if p.is_dir()])
-        for mode in MODES:
+        for mode in modes:
             latency_sessions = []
             conc_sessions = []
             payload_sessions = []
@@ -282,10 +300,10 @@ def main() -> int:
     # heatmap csv
     with heatmap_csv.open("w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["profile"] + MODES)
-        for profile in PROFILES:
+        w.writerow(["profile"] + modes)
+        for profile in profiles:
             row = [profile]
-            for mode in MODES:
+            for mode in modes:
                 m = next((x for x in rows if x["profile"] == profile and x["mode"] == mode), None)
                 row.append(fmt(float(m["latency_p95"]), 6) if m else "N/A")
             w.writerow(row)
@@ -308,8 +326,8 @@ def main() -> int:
         "| Profile | Mode | Sessions | Handshake success | TLS p95 (s) | CPU peak (%) | Mem peak (%) | Payload pcap bytes |",
         "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
-    for profile in PROFILES:
-        for mode in MODES:
+    for profile in profiles:
+        for mode in modes:
             m = next((x for x in rows if x["profile"] == profile and x["mode"] == mode), None)
             if not m:
                 continue
@@ -324,11 +342,11 @@ def main() -> int:
         "| Profile | Mode | Delta TLS p95 | Delta CPU peak | Delta Mem peak |",
         "|---|---|---:|---:|---:|",
     ]
-    for profile in PROFILES:
+    for profile in profiles:
         b = next((x for x in rows if x["profile"] == profile and x["mode"] == "classical"), None)
         if not b:
             continue
-        for mode in ["kex_pqc", "cert_pqc", "hybrid", "pqc"]:
+        for mode in [item for item in modes if item != "classical"]:
             m = next((x for x in rows if x["profile"] == profile and x["mode"] == mode), None)
             if not m:
                 continue
@@ -349,8 +367,8 @@ def main() -> int:
         "| Profile | Mode | Pass steps | Fail steps | Top failure reason |",
         "|---|---|---:|---:|---|",
     ]
-    for profile in PROFILES:
-        for mode in MODES:
+    for profile in profiles:
+        for mode in modes:
             c = compat.get((profile, mode), {"pass": 0, "fail": 0, "reasons": Counter()})
             reason = c["reasons"].most_common(1)[0][0] if c["reasons"] else ""
             lines.append(f"| {profile} | {mode} | {c['pass']} | {c['fail']} | {reason} |")
@@ -368,6 +386,8 @@ def main() -> int:
         f"- Summary CSV: `{summary_csv}`",
         f"- Heatmap CSV: `{heatmap_csv}`",
         f"- Compatibility status CSV: `{status_file}`",
+        "- Statistical summary CSV: `reports/statistical-summary.csv`",
+        "- Handshake size breakdown CSV: `reports/handshake-size-breakdown.csv`",
     ]
 
     summary_md.write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -1,0 +1,7 @@
+workload,latency_runs,warmup,resumption_mode,parallel,rounds,http_version,keepalive_mix,mtls_mode,load_pattern,mode_order_strategy,enabled,notes
+baseline_cold,50,5,off,100,10,http1.1,close,off,steady,seeded_random,true,Cold handshake-focused baseline
+baseline_resumed,50,5,on,100,10,http1.1,keepalive,off,steady,seeded_random,true,Resumption impact comparison
+mixed_keepalive,50,5,off,100,10,http1.1,mix50,off,steady,seeded_random,true,Mixed keepalive behavior for realistic traffic
+burst_gateway,50,5,off,200,20,http1.1,close,off,burst,seeded_random,true,High parallel pressure workload
+ramp_concurrency,50,5,off,200,20,http1.1,mix30,off,ramp,seeded_random,true,Ramp load pattern with partial keepalive
+quick_smoke,10,2,off,20,3,http1.1,close,off,steady,fixed,true,Fast pre-commit smoke workload

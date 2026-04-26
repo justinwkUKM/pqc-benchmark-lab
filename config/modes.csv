@@ -1,0 +1,7 @@
+mode,cert_algorithm,kex_group,resumption_supported,tls_version,enabled,notes
+classical,rsa2048,X25519,true,TLSv1.3,true,Baseline classical TLS profile
+kex_pqc,rsa2048,mlkem768,true,TLSv1.3,true,Isolates KEM impact with classical cert
+cert_pqc,mldsa65,X25519,true,TLSv1.3,true,Isolates certificate/signature impact
+hybrid,rsa2048,X25519MLKEM768,true,TLSv1.3,true,Near-term migration profile
+pqc,mldsa65,mlkem768,true,TLSv1.3,true,Full PQC profile
+hybrid_pqc_cert,mldsa65,X25519MLKEM768,true,TLSv1.3,true,Hybrid KEM with PQC certificate

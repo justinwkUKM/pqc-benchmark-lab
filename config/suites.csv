@@ -1,0 +1,5 @@
+suite,workload,sessions,profiles,modes,seed_strategy,enabled,notes
+quick,quick_smoke,1,dc_lan,classical|hybrid|pqc,fixed,true,Fast smoke suite for sanity checks
+broad_coverage,baseline_cold,3,all,all,seeded,true,Primary broad coverage benchmark suite
+resumption_focus,baseline_resumed,2,dc_lan|cross_region,classical|hybrid|pqc,seeded,true,Focused suite for resumption behavior
+stress_pattern,ramp_concurrency,2,burst_gateway|constrained_cpu,all,seeded,true,Focused on burst and ramp behavior

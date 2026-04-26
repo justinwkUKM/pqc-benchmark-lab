@@ -44,6 +44,7 @@ Runs the same crypto matrix across these profiles:
 - `burst_gateway`: LAN network with high burst concurrency
 
 Profiles are defined in `config/infra_profiles.csv` and applied via `tc` + `docker update`.
+Workloads are defined in `config/workloads.csv` for repeatable latency/concurrency/resumption presets.
 
 ### 2) TLS crypto scenario matrix
 
@@ -54,6 +55,8 @@ Supported benchmark modes:
 - `cert_pqc`: ML-DSA-65 + X25519
 - `hybrid`: RSA-2048 + X25519MLKEM768
 - `pqc`: ML-DSA-65 + ML-KEM-768
+
+Modes are defined in `config/modes.csv` (enabled rows are picked up automatically by matrix/profile runners).
 
 ### 3) Measurement workflows
 
@@ -116,6 +119,14 @@ open "results/runs/${RUN_ID}/reports/ACCEPTANCE.md"
 ./scripts/run_profiles.sh 3 50 5 off
 ```
 
+### Curated benchmark suites (Phase 3)
+
+```bash
+./scripts/run_suite.sh --suite broad_coverage
+./scripts/run_suite.sh --suite quick --seed 1337
+python3 scripts/config_query.py suites
+```
+
 Arguments: `<sessions> <latency_runs> <warmup> <resumption_mode>`
 
 - `sessions`: independent repeats for median aggregation (default `3`)
@@ -145,6 +156,26 @@ RUN_ID="release-candidate-01" ./scripts/run_profiles.sh 3 50 5 off
 
 ```bash
 ./scripts/capture_env.sh
+```
+
+### Validate lab configuration
+
+```bash
+python3 scripts/validate_config.py
+```
+
+### Catalog algorithm capabilities and generate executable matrices
+
+```bash
+./scripts/catalog.sh snapshot --backends openssl,liboqs,python
+./scripts/catalog.sh list --family kem
+
+python3 scripts/build_matrix.py \
+  --capabilities results/catalog/<timestamp>/capabilities.json \
+  --families kem,sig \
+  --backends openssl,liboqs,python \
+  --min-level 1 \
+  --output results/catalog/<timestamp>/matrix.csv
 ```
 
 ### Refresh pinned image digests
@@ -186,6 +217,8 @@ Delete:
   - `summary.csv`
   - `heatmap-p95.csv`
   - `compatibility-status.csv`
+  - `statistical-summary.csv`
+  - `handshake-size-breakdown.csv`
   - `ACCEPTANCE.md`
 
 Global helpers:
@@ -234,16 +267,28 @@ Packet-level interpretation:
 - Keep SLOs explicit in `config/slo.env`.
 - Use run-scoped output folders (`results/runs/<run-id>`).
 - Use at least 3 sessions for stable medians.
+- Validate configs before long runs (`scripts/validate_config.py`).
+- Use deterministic seeds for mode-order reproducibility (`RUN_SEED` or `run_suite.sh --seed`).
+
+## Config and schema
+
+- `config/modes.csv`: source-of-truth mode catalog.
+- `config/infra_profiles.csv`: source-of-truth network/resource profiles.
+- `config/workloads.csv`: source-of-truth workload presets.
+- `schema/run_result.json`: canonical run-result schema for downstream tooling.
 
 ## Extra tools in this repository
 
 - PQC algorithm playground: `scripts/playground.sh`
 - Interop harness: `scripts/interop.sh`
+- Capability catalog: `scripts/catalog.sh`
+- Dynamic matrix builder: `scripts/build_matrix.py`
 
 See:
 
 - `docs/pqc_playground.md`
 - `docs/pqc_interop.md`
+- `docs/adapter_contract.md`
 
 ## Troubleshooting
 

@@ -8,10 +8,31 @@ MODE="${1:-classical}"
 OUT_PCAP="${RESULTS_DIR}/tls-capture-${MODE}-$(timestamp).pcap"
 NETWORK_NAME="tls-pq-lab_pq-net"
 RESUMPTION_MODE="${RESUMPTION_MODE:-off}"
+CURL_HTTP_VERSION="${CURL_HTTP_VERSION:-http1.1}"
+KEEPALIVE_MODE="${KEEPALIVE_MODE:-}"
+MTLS_MODE="${MTLS_MODE:-off}"
 
-CURL_FLAGS=(--http1.1 --cacert /opt/nginx/certs/server.crt)
-if [[ "${RESUMPTION_MODE}" == "off" ]]; then
+CURL_FLAGS=(--cacert /opt/nginx/certs/server.crt)
+if [[ "${CURL_HTTP_VERSION}" == "http2" ]]; then
+  CURL_FLAGS+=(--http2)
+else
+  CURL_FLAGS+=(--http1.1)
+fi
+
+if [[ -z "${KEEPALIVE_MODE}" ]]; then
+  if [[ "${RESUMPTION_MODE}" == "off" ]]; then
+    KEEPALIVE_MODE="close"
+  else
+    KEEPALIVE_MODE="keepalive"
+  fi
+fi
+
+if [[ "${KEEPALIVE_MODE}" == "close" ]]; then
   CURL_FLAGS+=(--no-keepalive -H "Connection: close")
+fi
+
+if [[ "${MTLS_MODE}" == "on" && -f "${LAB_ROOT}/certs/client.crt" && -f "${LAB_ROOT}/certs/client.key" ]]; then
+  CURL_FLAGS+=(--cert /opt/nginx/certs/client.crt --key /opt/nginx/certs/client.key)
 fi
 
 set_mode "${MODE}"
